@@ -18,6 +18,16 @@
 
 > 状态仅用于只读展示。审批、确认和用户输入仍需回到 Codex 中完成。
 
+## 界面预览
+
+### 个人工作台
+
+![Agent Todo 个人工作台](assets/screenshots/workbench.png)
+
+### 待办看板
+
+![Agent Todo 待办看板](assets/screenshots/todo-board.png)
+
 ## 环境要求
 
 - Codex 桌面端或 Codex CLI
@@ -97,7 +107,9 @@ macOS / Linux：
 agent-todo/
 ├── SKILL.md                 # Codex 技能入口
 ├── agents/openai.yaml       # 技能界面元数据
-├── assets/web/              # Vue 3 工作台
+├── assets/
+│   ├── screenshots/         # README 界面截图
+│   └── web/                 # Vue 3 工作台
 ├── data/                    # 本地 SQLite 数据（不提交）
 ├── references/              # 架构、数据库与 API 说明
 ├── scripts/

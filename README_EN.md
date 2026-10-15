@@ -18,6 +18,16 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 
 > Status is read-only. Approvals, confirmations, and user input must still be handled in Codex.
 
+## Screenshots
+
+### Personal workspace
+
+![Agent Todo personal workspace](assets/screenshots/workbench.png)
+
+### Todo board
+
+![Agent Todo todo board](assets/screenshots/todo-board.png)
+
 ## Requirements
 
 - Codex desktop or Codex CLI
@@ -97,7 +107,9 @@ Create and update commands accept UTF-8 JSON input files. See the [database and 
 agent-todo/
 ├── SKILL.md                 # Codex skill entry point
 ├── agents/openai.yaml       # Skill UI metadata
-├── assets/web/              # Vue 3 dashboard
+├── assets/
+│   ├── screenshots/         # README screenshots
+│   └── web/                 # Vue 3 dashboard
 ├── data/                    # Local SQLite data (not committed)
 ├── references/              # Architecture, database, and API notes
 ├── scripts/
