@@ -8,7 +8,7 @@ The skill is intentionally local-first:
 - `scripts/lib/db.ts` owns SQLite validation, migrations, code allocation, and optimistic concurrency.
 - `scripts/lib/codex.ts` reads Codex quota through `account/rateLimits/read`, lists recent sessions through `thread/list`, interprets local JSONL session events for activity, and reads the desktop app's local thread read-state for completed-but-unread tasks.
 
-The dashboard always binds to `127.0.0.1:8721`. Every non-dashboard CLI operation probes `/api/health` first; when the Agent Todo service is absent, the CLI starts it and opens the dashboard before continuing.
+The dashboard always binds to `127.0.0.1:8021`. Every CLI operation probes `/api/health` first; when the Agent Todo service is absent, the CLI starts it and opens the dashboard before continuing. If the service is already running, it neither launches another process nor opens another browser tab.
 
 The visible dashboard polls todos and Codex activity every five seconds and refreshes immediately on focus. Full Codex quota and thread metadata remain cached for 15 seconds; unchanged session files reuse parsed activity facts, keeping the faster UI cadence lightweight.
 

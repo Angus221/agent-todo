@@ -55,7 +55,7 @@ function openDashboard() {
   else spawn('xdg-open', [DASHBOARD_URL], { detached: true }).unref();
 }
 
-async function ensureDashboard(openWhenRunning = false, noOpen = false) {
+async function ensureDashboard(noOpen = false) {
   let started = false;
   if (!(await health())) {
     const child = spawn(process.execPath, [resolve(root, 'scripts/server.ts')], {
@@ -68,18 +68,18 @@ async function ensureDashboard(openWhenRunning = false, noOpen = false) {
     if (!(await health())) throw new Error(`Agent Todo server did not start on port ${DASHBOARD_PORT}. Check whether the port is available.`);
     started = true;
   }
-  if (!noOpen && (started || openWhenRunning)) openDashboard();
+  if (!noOpen && started) openDashboard();
   return { ok: true, url: DASHBOARD_URL, started };
 }
 
 async function dashboard() {
   const noOpen = args.includes('--no-open');
-  print(await ensureDashboard(true, noOpen));
+  print(await ensureDashboard(noOpen));
 }
 
 async function main() {
   if (command === 'dashboard' || command === 'open' || command === 'serve') return dashboard();
-  await ensureDashboard(false, false);
+  await ensureDashboard(false);
   const store = new TodoStore();
   try {
     if (command === 'board') return print(store.board());

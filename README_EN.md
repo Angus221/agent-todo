@@ -9,7 +9,7 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 - Create, retrieve, update, and complete todos through natural language.
 - Assign stable four-digit codes and use optimistic concurrency for safe updates.
 - Store all todo data locally in SQLite with no external database.
-- Use the fixed local address `http://127.0.0.1:8721/`; the first operation starts and opens the dashboard automatically.
+- Use the fixed local address `http://127.0.0.1:8021/`; the first operation starts and opens the dashboard automatically, while a running service does not open another browser tab.
 - Sync todos and Codex activity every five seconds while visible, with an immediate refresh when the page regains focus.
 - Show one Codex workstation with one task block for every current parallel task.
 - Render running tasks with a blue light stream, user-confirmation waits in orange, and completed unread tasks in green.
@@ -22,7 +22,7 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 
 - Codex desktop or Codex CLI
 - Node.js 22.13 or newer
-- Local port `8721` available
+- Local port `8021` available
 
 ## Installation
 
@@ -61,7 +61,7 @@ After installation, ask Codex things like:
 - “Open the Agent Todo dashboard.”
 - “Show my current Codex quota and active tasks.”
 
-Before any todo command, the skill checks the web service. If it is not running, the CLI starts it on `127.0.0.1:8721` and opens the browser. It does not start duplicate server processes.
+Before any todo command, the skill checks the web service. If it is not running, the CLI starts it on `127.0.0.1:8021` and opens the browser. If it is already running, the CLI neither starts another process nor opens another browser tab.
 
 ## CLI
 
