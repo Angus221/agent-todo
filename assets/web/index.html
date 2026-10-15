@@ -507,6 +507,27 @@
     .task-block-done {
       filter: drop-shadow(0 0 1.5px rgba(16, 185, 129, 0.35));
     }
+
+    /* Codex 当前任务列表中的进行中流光球 */
+    @keyframes codex-task-orb-flow {
+      0%, 100% {
+        transform: scale(0.88);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.45), 0 0 10px rgba(14, 165, 233, 0.72);
+      }
+      50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 5px rgba(59, 130, 246, 0), 0 0 16px rgba(56, 189, 248, 0.95);
+      }
+    }
+    .codex-task-orb {
+      background: linear-gradient(135deg, #60a5fa 0%, #2563eb 48%, #22d3ee 100%);
+      animation: codex-task-orb-flow 1.65s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .codex-task-orb {
+        animation: none;
+      }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden">
@@ -884,8 +905,8 @@
               </p>
             </div>
 
-            <!-- 4 组指标统计胶囊卡片 (活跃 Agent / 待办事项 / 今日完成 / 今日进度) -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 max-w-3xl">
+            <!-- 工作台概览卡片（活跃 Agent / 日期 / 时间） -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 max-w-2xl">
               <!-- 指标 1：活跃 Agent -->
               <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(59,130,246,0.12)] transition-all flex items-center justify-between group cursor-pointer"
                    @click="showToast(`当前活跃 Codex 办公位: ${activeAgentsCount}/1`)">
@@ -915,71 +936,34 @@
                 </div>
               </div>
 
-              <!-- 指标 2：待办事项 -->
-              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(99,102,241,0.12)] transition-all flex items-center justify-between group cursor-pointer"
-                   @click="activePrimaryModule = 'todos'">
+              <!-- 日期 -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(99,102,241,0.12)] transition-all flex items-center group">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-xl bg-indigo-50/90 border border-indigo-100 flex items-center justify-center text-indigo-500">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
                     </svg>
                   </div>
-                  <div>
-                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ pendingTasksCount }}</div>
-                    <div class="text-[11px] text-slate-500 font-medium flex items-center gap-0.5 mt-1">
-                      <span>待办事项</span>
-                      <span class="text-[10px] text-slate-400 group-hover:translate-x-0.5 transition-transform">›</span>
-                    </div>
+                  <div class="min-w-0">
+                    <div class="text-base font-extrabold text-slate-900 leading-none whitespace-nowrap">{{ currentDateText }}</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1 whitespace-nowrap">{{ currentWeekdayText }}</div>
                   </div>
-                </div>
-                <!-- 迷你折线波形 -->
-                <div class="pr-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                  <svg class="w-8 h-5 text-indigo-400" viewBox="0 0 32 20" fill="none">
-                    <path d="M2 16L9 12L16 15L23 6L30 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
                 </div>
               </div>
 
-              <!-- 指标 3：今日完成 -->
-              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(16,185,129,0.12)] transition-all flex items-center justify-between group cursor-pointer"
-                   @click="showToast(`今日已完成 ${completedTodayCount} 项待办`)">
+              <!-- 时间 -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(14,165,233,0.12)] transition-all flex items-center group">
                 <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-emerald-50/90 border border-emerald-100 flex items-center justify-center text-emerald-500">
+                  <div class="w-10 h-10 rounded-xl bg-sky-50/90 border border-sky-100 flex items-center justify-center text-sky-500">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ completedTodayCount }}</div>
-                    <div class="text-[11px] text-slate-500 font-medium mt-1">今日完成</div>
+                    <div class="text-xl font-extrabold text-slate-900 leading-none font-mono tabular-nums">{{ currentTimeText }}</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1">本地时间 · {{ currentSecondsText }} 秒</div>
                   </div>
                 </div>
-                <!-- 迷你绿色柱图 -->
-                <div class="flex items-end gap-1 h-6 pr-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                  <div class="w-1.5 bg-emerald-300 rounded-t h-2"></div>
-                  <div class="w-1.5 bg-emerald-400 rounded-t h-4"></div>
-                  <div class="w-1.5 bg-emerald-500 rounded-t h-3"></div>
-                  <div class="w-1.5 bg-emerald-600 rounded-t h-5.5"></div>
-                </div>
-              </div>
-
-              <!-- 指标 4：今日进度 -->
-              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(14,165,233,0.12)] transition-all flex items-center justify-between group cursor-pointer"
-                   @click="showToast(`今日待办完成进度: ${todayProgressPct}%`)">
-                <div class="flex items-center gap-3">
-                  <!-- 环形圆环进度 -->
-                  <div class="relative w-10 h-10 flex items-center justify-center">
-                    <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
-                      <path class="text-slate-100" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                      <path class="text-blue-500" :stroke-dasharray="`${todayProgressPct}, 100`" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ todayProgressPct }}%</div>
-                    <div class="text-[11px] text-slate-500 font-medium mt-1">今日进度</div>
-                  </div>
-                </div>
-                <div class="text-slate-400 text-sm font-semibold pr-1 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all">›</div>
               </div>
             </div>
           </div>
@@ -1128,8 +1112,8 @@
             <h2 class="text-sm font-bold text-slate-900 tracking-tight">Agent办公区</h2>
           </div>
 
-          <!-- 5 位 2.5D 智能工位（无卡片包裹，仅小人、桌椅与桌面额度水柱呈现） -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 items-center justify-items-center py-1">
+          <!-- 单个 Codex 办公位与当前任务列表 -->
+          <div class="grid grid-cols-1 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)] gap-4 lg:gap-7 items-center py-1">
             <div 
               v-for="agent in agents" 
               :key="agent.id"
@@ -1461,20 +1445,54 @@
               </div>
 
             </div>
+
+            <aside class="w-full min-w-0 rounded-2xl border border-white/90 bg-white/65 backdrop-blur-md p-3.5 sm:p-4 shadow-[0_4px_18px_rgba(15,23,42,0.04)]" aria-label="当前 Codex 任务列表">
+              <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+                <div class="min-w-0">
+                  <h3 class="text-xs font-bold text-slate-800">当前 Codex 任务</h3>
+                  <p class="text-[10px] text-slate-400 mt-0.5">每 5 秒自动同步工作状态</p>
+                </div>
+                <span class="flex-shrink-0 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                  {{ agents[0]?.agentTasks?.length || 0 }} 项
+                </span>
+              </div>
+
+              <div v-if="agents[0]?.agentTasks?.length" class="mt-2 divide-y divide-slate-100 max-h-[230px] overflow-y-auto pr-1">
+                <div
+                  v-for="task in agents[0].agentTasks"
+                  :key="'codex-list-' + task.id"
+                  class="group flex items-center gap-3 min-h-10 py-2 px-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                  :title="task.title"
+                >
+                  <span v-if="task.status === 'done'" class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.35)]" aria-label="已完成">
+                    <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </span>
+                  <span v-else-if="task.status === 'waiting_approval' || task.status === 'confirm'" class="w-4 h-4 rounded-full bg-amber-400 text-white flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(245,158,11,0.4)] text-[10px] font-black" aria-label="待确认">!</span>
+                  <span v-else class="codex-task-orb w-3.5 h-3.5 rounded-full flex-shrink-0" aria-label="进行中"></span>
+                  <span class="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 group-hover:text-slate-900">{{ task.title }}</span>
+                </div>
+              </div>
+
+              <div v-else class="mt-3 min-h-[92px] rounded-xl border border-dashed border-slate-200 bg-white/35 flex items-center justify-center text-[11px] text-slate-400">
+                Codex 当前没有活动任务
+              </div>
+            </aside>
           </div>
         </section>
 
         <!-- =================================================================== -->
-        <!-- 核心板块 2：待办区（今日待办看板）                                    -->
+        <!-- 核心板块 2：待办区（本周待办看板）                                    -->
         <!-- =================================================================== -->
         <section class="space-y-3 pb-8">
           <!-- 待办区头部与“查看全部待办”功能 -->
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-base">📋</span>
-              <h2 class="text-sm font-bold text-slate-900 tracking-tight">今日待办</h2>
+              <h2 class="text-sm font-bold text-slate-900 tracking-tight">本周待办</h2>
               <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                共 {{ workbenchTodayTasks.length }} 项
+                共 {{ workbenchWeekTasks.length }} 项
               </span>
             </div>
 
@@ -1513,7 +1531,7 @@
                     {{ col.title }}
                   </span>
                   <span class="text-[10px] font-mono px-1.5 py-0.2 bg-white text-slate-500 rounded-full border border-slate-200 flex-shrink-0">
-                    {{ getWorkbenchTodayColumnTasks(col.id).length }}
+                    {{ getWorkbenchWeekColumnTasks(col.id).length }}
                   </span>
                 </div>
                 
@@ -1530,7 +1548,7 @@
               <!-- 卡片列表 (仅显示 编号，优先级，复制小图标，标题，文件夹最后一级悬浮显示完整路径) -->
               <div class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                 <div 
-                  v-for="task in getWorkbenchTodayColumnTasks(col.id)" 
+                  v-for="task in getWorkbenchWeekColumnTasks(col.id)"
                   :key="task.id"
                   draggable="true"
                   @dragstart="onTaskDragStart($event, task)"
@@ -1582,8 +1600,8 @@
                 </div>
 
                 <!-- 空状态占位 -->
-                <div v-if="getWorkbenchTodayColumnTasks(col.id).length === 0" class="py-6 text-center text-slate-300 text-[11px] font-mono border border-dashed border-slate-200 rounded-lg">
-                  今日暂无任务
+                <div v-if="getWorkbenchWeekColumnTasks(col.id).length === 0" class="py-6 text-center text-slate-300 text-[11px] font-mono border border-dashed border-slate-200 rounded-lg">
+                  本周暂无任务
                 </div>
               </div>
             </div>
@@ -2478,7 +2496,10 @@
   function getFormattedDate(offsetDays = 0) {
     const d = new Date();
     d.setDate(d.getDate() + offsetDays);
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   const DEFAULT_TASKS = [
@@ -2730,6 +2751,21 @@
       // 默认首页为工作台 (workbench)
       const activePrimaryModule = ref('workbench');
       const currentViewMode = ref('kanban'); // kanban / list / calendar
+      const clockNow = ref(new Date());
+      const currentDateText = computed(() => new Intl.DateTimeFormat('zh-CN', {
+        month: 'long',
+        day: 'numeric'
+      }).format(clockNow.value));
+      const currentWeekdayText = computed(() => new Intl.DateTimeFormat('zh-CN', {
+        year: 'numeric',
+        weekday: 'long'
+      }).format(clockNow.value));
+      const currentTimeText = computed(() => new Intl.DateTimeFormat('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(clockNow.value));
+      const currentSecondsText = computed(() => String(clockNow.value.getSeconds()).padStart(2, '0'));
 
       // 保留 Demo 原始数据结构；页面初始化时只展示一个 Codex 办公位，随后由本地状态覆盖。
       const agents = ref([
@@ -3725,19 +3761,20 @@ Please navigate to the Project Path specified above, analyze the current workspa
         }
       }
 
-      // 工作台今日待办区看板聚合：仅显示今天的待办及今天完成的任务
-      const workbenchTodayTasks = computed(() => {
-        const today = getFormattedDate(0);
-        return (tasks.value || []).filter(task => {
-          if (task.status === 'done') {
-            return task.completedDate === today || (!task.completedDate && task.dueDate === today);
-          }
-          return task.dueDate === today;
-        });
+      // 工作台本周待办区看板聚合：使用本地日历周（周一至周日）
+      const workbenchWeekTasks = computed(() => {
+        const today = new Date();
+        const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        monday.setDate(monday.getDate() + (monday.getDay() === 0 ? -6 : 1 - monday.getDay()));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const start = [monday.getFullYear(), String(monday.getMonth() + 1).padStart(2, '0'), String(monday.getDate()).padStart(2, '0')].join('-');
+        const end = [sunday.getFullYear(), String(sunday.getMonth() + 1).padStart(2, '0'), String(sunday.getDate()).padStart(2, '0')].join('-');
+        return (tasks.value || []).filter(task => task.dueDate >= start && task.dueDate <= end);
       });
 
-      function getWorkbenchTodayColumnTasks(colId) {
-        return workbenchTodayTasks.value.filter(task => task.status === colId);
+      function getWorkbenchWeekColumnTasks(colId) {
+        return workbenchWeekTasks.value.filter(task => task.status === colId);
       }
 
       // 工作台核心待办聚合计算 (完全对应设计图 5 条进入待办与 3 条进行中待办)
@@ -3757,16 +3794,6 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       const activeAgentsCount = computed(() => {
         return agents.value.filter(a => a.status === 'busy' || a.status === 'waiting_approval').length;
-      });
-
-      const pendingTasksCount = computed(() => {
-        return tasks.value.filter(t => t.status === 'todo').length;
-      });
-
-      const completedTodayCount = computed(() => workbenchTodayTasks.value.filter(t => t.status === 'done').length);
-      const todayProgressPct = computed(() => {
-        const total = workbenchTodayTasks.value.length;
-        return total ? Math.round((completedTodayCount.value / total) * 100) : 0;
       });
 
       function startNewAgentTask(agent) {
@@ -4040,6 +4067,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       let todoPollTimer = null;
       let codexPollTimer = null;
+      let clockTimer = null;
 
       function refreshVisibleData() {
         if (document.visibilityState !== 'visible') return;
@@ -4048,6 +4076,10 @@ Please navigate to the Project Path specified above, analyze the current workspa
       }
 
       onMounted(async () => {
+        clockNow.value = new Date();
+        clockTimer = window.setInterval(() => {
+          clockNow.value = new Date();
+        }, 1000);
         await loadInitialData();
         await fetchCodexStatus(false, false);
         todoPollTimer = window.setInterval(() => {
@@ -4077,6 +4109,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
       });
 
       onUnmounted(() => {
+        if (clockTimer) window.clearInterval(clockTimer);
         if (todoPollTimer) window.clearInterval(todoPollTimer);
         if (codexPollTimer) window.clearInterval(codexPollTimer);
         document.removeEventListener('visibilitychange', refreshVisibleData);
@@ -4086,6 +4119,10 @@ Please navigate to the Project Path specified above, analyze the current workspa
       return {
         activePrimaryModule,
         currentViewMode,
+        currentDateText,
+        currentWeekdayText,
+        currentTimeText,
+        currentSecondsText,
         activeTimeFilter,
         activeCategory,
         activeCategoryObj,
@@ -4194,14 +4231,11 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
         // 工作台状态与方法 (完全对应设计图)
         agents,
-        workbenchTodayTasks,
-        getWorkbenchTodayColumnTasks,
+        workbenchWeekTasks,
+        getWorkbenchWeekColumnTasks,
         workbenchPendingTasks,
         workbenchInProgressTasks,
         activeAgentsCount,
-        pendingTasksCount,
-        completedTodayCount,
-        todayProgressPct,
         startNewAgentTask,
         todayTasks,
         inProgressTasks,

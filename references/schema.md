@@ -9,7 +9,7 @@ The persistent database is `data/agent-todo.sqlite`. The TypeScript store in `sc
 - `description` / `content`: Markdown task details
 - `status`: status id from the board
 - `priority`: `P0`, `P1`, `P2`, or `P3`
-- `dueDate`: local calendar date in `YYYY-MM-DD`
+- `dueDate`: local calendar date in `YYYY-MM-DD`; defaults to the current local date when omitted
 - `dueTime`: optional `HH:mm`
 - `projectPath`: optional local project path
 - `categoryId`: category id

@@ -11,11 +11,11 @@ description: 在本地 Agent Todo SQLite 看板中创建、查询、更新、完
 
 ## 创建待办
 
-创建 UTF-8 JSON 输入文件，内容包括简洁的 `title`、必填的本地日历日期 `dueDate`（`YYYY-MM-DD`）、详细的 `content` 或 `description`，以及可选的 `projectPath`、优先级 `priority`（`P0`–`P3`）、区域 `area`（`workspace` 或 `personal`）、分类和标签。除非用户说明任务已经开始，否则默认使用 `workspace`、`P1` 和受保护的 `todo` 状态。
+创建 UTF-8 JSON 输入文件，内容包括简洁的 `title`、详细的 `content` 或 `description`，以及可选的本地日历日期 `dueDate`（`YYYY-MM-DD`）、`projectPath`、优先级 `priority`（`P0`–`P3`）、区域 `area`（`workspace` 或 `personal`）、分类和标签。用户未指定日期时省略 `dueDate`，数据层会自动使用当前本地日期；不要仅因缺少日期追问用户。除非用户说明任务已经开始，否则默认使用 `workspace`、`P1` 和受保护的 `todo` 状态。
 
 默认只生成 **1 个标签**，不要把技术栈、任务类型和同义词拆成一串标签。标签优先采用 `项目名-功能概括`：项目名取用户明确给出的名称或 `projectPath` 的最后一级目录；功能概括使用 4～5 个中文字符或同等长度的简短词组，例如 `agent-todo-标签优化`。无法确定项目名时，只使用一个简短的功能概括。只有用户明确要求多个标签时才增加，且去除重复或近义标签。
 
-运行 `create --input PATH`，随后删除临时输入文件，并向用户返回分配到的四位数编号。只有在无法合理推断计划日期时，才向用户询问日期。
+运行 `create --input PATH`，随后删除临时输入文件，并向用户返回分配到的四位数编号。
 
 ## 读取或处理待办
 
@@ -41,6 +41,6 @@ description: 在本地 Agent Todo SQLite 看板中创建、查询、更新、完
 
 页面可见时，每 5 秒同步待办与 Codex 活动状态；页面重新获得焦点时立即同步。Codex 额度和线程元数据的完整扫描保持 15 秒缓存，避免频繁启动本地 Codex 查询进程。
 
-Agent 区始终只显示一个 Codex 办公位。办公桌上的每个任务块对应一个当前 Codex 任务：进行中显示蓝色流光，待用户确认显示橙色，已完成未读显示绿色；并行任务有几个就显示几个任务块，悬浮时显示对应的 Codex 任务标题。审批和用户输入仍必须回到 Codex 中处理。
+Agent 区始终只显示一个 Codex 办公位。办公桌上的每个任务块及右侧列表中的每一行都对应一个当前 Codex 任务：进行中显示蓝色流光，待用户确认显示橙色，已完成未读显示绿色；并行任务有几个就显示几项，悬浮时显示对应的 Codex 任务标题。工作台底部按本地日历周（周一至周日）展示本周待办。审批和用户输入仍必须回到 Codex 中处理。
 
 数据库和 API 细节见 [references/schema.md](references/schema.md)。实现边界和数据来源见 [references/architecture.md](references/architecture.md)。

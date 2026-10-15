@@ -39,6 +39,14 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function todayLocalDate(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function parseJson<T>(value: unknown, fallback: T): T {
   if (typeof value !== 'string' || value.length === 0) return fallback;
   try { return JSON.parse(value) as T; } catch { return fallback; }
@@ -89,7 +97,7 @@ function normalizeTodoInput(input: Record<string, unknown>) {
     description: String(input.description ?? input.content ?? ''),
     status,
     priority,
-    dueDate: String(input.dueDate ?? input.date ?? '').trim() || null,
+    dueDate: String(input.dueDate ?? input.date ?? '').trim() || todayLocalDate(),
     dueTime: String(input.dueTime ?? '').trim() || null,
     projectPath: String(input.projectPath ?? input.project ?? '').trim() || null,
     categoryId: input.categoryId === null ? null : String(input.categoryId ?? (area === 'personal' ? 'personal' : 'work')),
