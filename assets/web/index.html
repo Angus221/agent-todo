@@ -1447,14 +1447,7 @@
             </div>
 
             <aside class="w-full min-w-0 px-1 sm:px-2" aria-label="当前 Codex 任务列表">
-              <div class="pb-2">
-                <div class="min-w-0">
-                  <h3 class="text-xs font-bold text-slate-800">当前 Codex 任务</h3>
-                  <p class="text-[10px] text-slate-400 mt-0.5">每 5 秒自动同步工作状态</p>
-                </div>
-              </div>
-
-              <div v-if="agents[0]?.agentTasks?.length" class="mt-1 space-y-1 max-h-[230px] overflow-y-auto pr-1">
+              <div v-if="agents[0]?.agentTasks?.length" class="space-y-1 max-h-[230px] overflow-y-auto pr-1">
                 <div
                   v-for="task in agents[0].agentTasks"
                   :key="'codex-list-' + task.id"
