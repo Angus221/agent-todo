@@ -14,7 +14,7 @@ The persistent database is `data/agent-todo.sqlite`. The TypeScript store in `sc
 - `projectPath`: optional local project path
 - `categoryId`: category id
 - `area`: `workspace` or `personal`
-- `tags`: array of at most 12 tags without `#`
+- `tags`: array of at most 12 tags without `#`; AI-created todos use one `project-feature` tag by default, with the feature summarized in roughly four to five Chinese characters when applicable
 - `version`: optimistic-concurrency version; pass it as `expectedVersion` on updates
 - `resultSummary`, `artifacts`, `handledAt`: execution result metadata
 

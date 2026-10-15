@@ -9,6 +9,7 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 - Create, retrieve, update, and complete todos through natural language.
 - Assign stable four-digit codes and use optimistic concurrency for safe updates.
 - Store all todo data locally in SQLite with no external database.
+- Generate one `project-feature` tag by default instead of attaching a pile of overlapping tags.
 - Use the fixed local address `http://127.0.0.1:8021/`; the first operation starts and opens the dashboard automatically, while a running service does not open another browser tab.
 - Sync todos and Codex activity every five seconds while visible, with an immediate refresh when the page regains focus.
 - Show one Codex workstation with one task block for every current parallel task.

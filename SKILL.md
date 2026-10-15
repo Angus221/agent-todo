@@ -11,7 +11,9 @@ description: 在本地 Agent Todo SQLite 看板中创建、查询、更新、完
 
 ## 创建待办
 
-创建 UTF-8 JSON 输入文件，内容包括简洁的 `title`、必填的本地日历日期 `dueDate`（`YYYY-MM-DD`）、详细的 `content` 或 `description`，以及可选的 `projectPath`、优先级 `priority`（`P0`–`P3`）、区域 `area`（`workspace` 或 `personal`）、分类和最多 12 个标签。除非用户说明任务已经开始，否则默认使用 `workspace`、`P1` 和受保护的 `todo` 状态。
+创建 UTF-8 JSON 输入文件，内容包括简洁的 `title`、必填的本地日历日期 `dueDate`（`YYYY-MM-DD`）、详细的 `content` 或 `description`，以及可选的 `projectPath`、优先级 `priority`（`P0`–`P3`）、区域 `area`（`workspace` 或 `personal`）、分类和标签。除非用户说明任务已经开始，否则默认使用 `workspace`、`P1` 和受保护的 `todo` 状态。
+
+默认只生成 **1 个标签**，不要把技术栈、任务类型和同义词拆成一串标签。标签优先采用 `项目名-功能概括`：项目名取用户明确给出的名称或 `projectPath` 的最后一级目录；功能概括使用 4～5 个中文字符或同等长度的简短词组，例如 `agent-todo-标签优化`。无法确定项目名时，只使用一个简短的功能概括。只有用户明确要求多个标签时才增加，且去除重复或近义标签。
 
 运行 `create --input PATH`，随后删除临时输入文件，并向用户返回分配到的四位数编号。只有在无法合理推断计划日期时，才向用户询问日期。
 

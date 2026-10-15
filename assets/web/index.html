@@ -2318,9 +2318,9 @@
           <p class="text-[10px] text-slate-500 mt-1">此路径由 AI Agent 在生成任务时自动附带，一键复制时会嵌入提示词供 Agent 调取工具定位。</p>
         </div>
 
-        <!-- 4. 标签集合管理 -->
+        <!-- 4. 任务标签管理 -->
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">标签集合</label>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">任务标签 <span class="font-normal text-slate-400">（建议 1 个）</span></label>
           <div class="flex flex-wrap items-center gap-1.5 mb-2">
             <span 
               v-for="t in activeForm.tags" 
@@ -2334,20 +2334,11 @@
             <input 
               v-model.trim="newTagInput" 
               @keyup.enter="addFormTag"
-              placeholder="添加标签后按 Enter..." 
-              class="px-2.5 py-1 bg-slate-50 border border-slate-300 text-xs w-48 text-slate-800 focus:bg-white focus:border-brand-500 rounded focus:outline-none"
+              placeholder="项目名-功能概括"
+              class="px-2.5 py-1 bg-slate-50 border border-slate-300 text-xs w-56 text-slate-800 focus:bg-white focus:border-brand-500 rounded focus:outline-none"
             />
-            <div class="flex items-center gap-1 overflow-x-auto text-[10px]">
-              <span class="text-slate-400 text-[10px]">常用:</span>
-              <button 
-                v-for="s in ['frontend', 'backend', 'ai-agent', 'refactor', 'test']" 
-                :key="s" 
-                @click="quickAddFormTag(s)"
-                class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-brand-600 cursor-pointer">
-                +{{ s }}
-              </button>
-            </div>
           </div>
+          <p class="mt-1.5 text-[10px] text-slate-400">优先使用“项目名-四五字功能概括”，避免堆叠相近标签。</p>
         </div>
 
         <!-- 5. Markdown 任务描述 (编辑与实时预览) -->
@@ -2462,7 +2453,7 @@
       dueTime: '09:30',
       projectPath: 'd:/workspace/projects/cloud-auth-service',
       categoryId: 'work',
-      tags: ['backend', 'auth', 'security']
+      tags: ['cloud-auth-service-令牌刷新']
     },
     {
       id: 'task-2',
@@ -2475,7 +2466,7 @@
       dueTime: '11:00',
       projectPath: 'd:/Workspace/personal/AgentDashboard',
       categoryId: 'work',
-      tags: ['frontend', 'performance', 'vue3']
+      tags: ['AgentDashboard-拖拽性能']
     },
     {
       id: 'task-3',
@@ -2488,7 +2479,7 @@
       dueTime: '15:30',
       projectPath: 'd:/workspace/personal/tech-blog',
       categoryId: 'personal',
-      tags: ['blog', 'writing', 'ai-agent']
+      tags: ['tech-blog-架构实践']
     },
     {
       id: 'task-4',
@@ -2501,7 +2492,7 @@
       dueTime: '16:00',
       projectPath: 'd:/workspace/projects/asset-storage-hub',
       categoryId: 'work',
-      tags: ['backend', 'bugfix']
+      tags: ['asset-storage-hub-上传修复']
     },
     {
       id: 'task-5',
@@ -2514,7 +2505,7 @@
       dueTime: '18:30',
       projectPath: 'd:/workspace/personal/fitness-tracker',
       categoryId: 'personal',
-      tags: ['health', 'life']
+      tags: ['fitness-tracker-跑步打卡']
     },
     {
       id: 'task-6',
@@ -2527,7 +2518,7 @@
       dueTime: '10:00',
       projectPath: 'd:/workspace/projects/core-portal',
       categoryId: 'work',
-      tags: ['architecture', 'micro-frontend']
+      tags: ['core-portal-沙箱隔离']
     },
     {
       id: 'task-7',
@@ -2540,7 +2531,7 @@
       dueTime: '20:00',
       projectPath: 'd:/workspace/research/llm-papers',
       categoryId: 'personal',
-      tags: ['research', 'ai-agent']
+      tags: ['llm-papers-工具边界']
     },
     {
       id: 'task-8',
@@ -2553,7 +2544,7 @@
       dueTime: '14:20',
       projectPath: 'd:/workspace/projects/ast-dep-analyzer',
       categoryId: 'work',
-      tags: ['ast', 'typescript', 'ai-agent']
+      tags: ['ast-dep-analyzer-依赖解耦']
     },
     // ===== 工作台专属任务 (严格对照参考设计图) =====
     {
@@ -2570,7 +2561,7 @@
       dueTime: '09:00',
       projectPath: 'd:/workspace/landing-page-v2',
       categoryId: 'work',
-      tags: ['design', 'ui-ux']
+      tags: ['landing-page-v2-首页视觉']
     },
     {
       id: 'task-ref-2',
@@ -2586,7 +2577,7 @@
       dueTime: '10:30',
       projectPath: 'd:/workspace/q3-metrics-report',
       categoryId: 'work',
-      tags: ['data', 'analytics']
+      tags: ['q3-metrics-report-数据报告']
     },
     {
       id: 'task-ref-3',
@@ -2602,7 +2593,7 @@
       dueTime: '14:00',
       projectPath: 'd:/workspace/ai-tools-research',
       categoryId: 'personal',
-      tags: ['research', 'ai-agent']
+      tags: ['ai-tools-research-市场调研']
     },
     {
       id: 'task-ref-4',
@@ -2618,7 +2609,7 @@
       dueTime: '09:00',
       projectPath: 'd:/workspace/feedback-module',
       categoryId: 'work',
-      tags: ['product', 'interaction']
+      tags: ['feedback-module-交互优化']
     },
     {
       id: 'task-ref-5',
@@ -2634,7 +2625,7 @@
       dueTime: '14:00',
       projectPath: 'd:/workspace/prd-docs-2026',
       categoryId: 'work',
-      tags: ['docs', 'planning']
+      tags: ['prd-docs-评审材料']
     },
     {
       id: 'task-ref-6',
@@ -2651,7 +2642,7 @@
       dueTime: '11:00',
       projectPath: 'd:/workspace/cloud-auth-service',
       categoryId: 'work',
-      tags: ['backend', 'auth']
+      tags: ['cloud-auth-service-用户认证']
     },
     {
       id: 'task-ref-7',
@@ -2668,7 +2659,7 @@
       dueTime: '15:00',
       projectPath: 'd:/workspace/competitor-spider',
       categoryId: 'work',
-      tags: ['browser', 'spider']
+      tags: ['competitor-spider-竞品分析']
     },
     {
       id: 'task-ref-8',
@@ -2685,7 +2676,7 @@
       dueTime: '17:30',
       projectPath: 'd:/workspace/infra-k8s',
       categoryId: 'work',
-      tags: ['ops', 'k8s', 'docker']
+      tags: ['infra-k8s-测试部署']
     }
   ];
 
@@ -3516,7 +3507,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
           dueTime: '09:00',
           projectPath: 'd:/Workspace/personal/AgentDashboard',
           categoryId: activeCategory.value || 'work',
-          tags: ['ai-agent']
+          tags: []
         };
         isDrawerOpen.value = true;
       }
@@ -3580,12 +3571,6 @@ Please navigate to the Project Path specified above, analyze the current workspa
           activeForm.value.tags.push(tag);
         }
         newTagInput.value = '';
-      }
-
-      function quickAddFormTag(tag) {
-        if (!activeForm.value.tags.includes(tag)) {
-          activeForm.value.tags.push(tag);
-        }
       }
 
       function removeFormTag(tag) {
@@ -4112,7 +4097,6 @@ Please navigate to the Project Path specified above, analyze the current workspa
         deleteCurrentTask,
         setFormDateQuick,
         addFormTag,
-        quickAddFormTag,
         removeFormTag,
 
         draggingTaskId,
