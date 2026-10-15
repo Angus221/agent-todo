@@ -5,6 +5,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 type Json = Record<string, any>;
+type SessionFacts = { startedAt: number; completedAt: number; lastActivityAt: number; waitingSignal: boolean };
+
+const sessionFactsCache = new Map<string, { size: number; mtimeMs: number; facts: SessionFacts }>();
+let metadataCache: { quota: Json; threads: Json[] } | null = null;
+let metadataUpdatedAt = 0;
+const METADATA_TTL_MS = 15_000;
 
 class CodexRpc {
   child: ChildProcessWithoutNullStreams;
@@ -107,8 +113,22 @@ function readUnreadThreadIds() {
   return ids;
 }
 
-function sessionActivity(thread: Json) {
-  const events = thread.path ? readTail(thread.path) : [];
+function sessionFacts(thread: Json): SessionFacts {
+  const path = String(thread.path || '');
+  if (!path) return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false };
+  try {
+    const stat = statSync(path);
+    const cached = sessionFactsCache.get(path);
+    if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) return cached.facts;
+    const facts = parseSessionFacts(readTail(path));
+    sessionFactsCache.set(path, { size: stat.size, mtimeMs: stat.mtimeMs, facts });
+    return facts;
+  } catch {
+    return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false };
+  }
+}
+
+function parseSessionFacts(events: Json[]): SessionFacts {
   let startedAt = 0;
   let completedAt = 0;
   let lastActivityAt = 0;
@@ -126,6 +146,11 @@ function sessionActivity(thread: Json) {
     }
     if (event.type === 'event_msg' && /approval|request_user_input|elicitation/i.test(String(payload.type || ''))) waitingSignal = true;
   }
+  return { startedAt, completedAt, lastActivityAt, waitingSignal };
+}
+
+function sessionActivity(thread: Json) {
+  const { startedAt, completedAt, lastActivityAt, waitingSignal } = sessionFacts(thread);
   const unfinished = startedAt > completedAt;
   const quietMs = Date.now() - lastActivityAt;
   let status = 'idle';
@@ -226,7 +251,7 @@ function makeCodexAgent(threads: Json[], quota: Json, unreadThreadIds: Set<strin
   };
 }
 
-export async function fetchCodexSnapshot() {
+async function refreshMetadata() {
   const rpc = new CodexRpc();
   try {
     await rpc.initialize();
@@ -234,12 +259,34 @@ export async function fetchCodexSnapshot() {
       rpc.request('account/rateLimits/read', {}, 8000),
       rpc.request('thread/list', { limit: 100, sortKey: 'updated_at', sortDirection: 'desc' }, 10000),
     ]);
-    const quota = quotaSnapshot(limits);
-    const agent = makeCodexAgent(threads?.data || [], quota, readUnreadThreadIds());
-    return { ok: true, source: 'codex-app-server+local-session-events+desktop-read-state', quota, agents: [agent], updatedAt: new Date().toISOString(), error: null };
-  } catch (error) {
-    return { ok: false, source: 'unavailable', quota: { available: false, remainingPercent: 0 }, agents: [], updatedAt: new Date().toISOString(), error: error instanceof Error ? error.message : String(error) };
+    metadataCache = { quota: quotaSnapshot(limits), threads: threads?.data || [] };
+    metadataUpdatedAt = Date.now();
   } finally {
     rpc.close();
   }
+}
+
+export async function fetchCodexSnapshot(forceMetadata = false) {
+  let metadataError: string | null = null;
+  try {
+    if (forceMetadata || !metadataCache || Date.now() - metadataUpdatedAt >= METADATA_TTL_MS) {
+      await refreshMetadata();
+    }
+  } catch (error) {
+    metadataError = error instanceof Error ? error.message : String(error);
+    if (!metadataCache) {
+      return { ok: false, source: 'unavailable', quota: { available: false, remainingPercent: 0 }, agents: [], updatedAt: new Date().toISOString(), error: metadataError };
+    }
+  }
+  const quota = metadataCache!.quota;
+  const agent = makeCodexAgent(metadataCache!.threads, quota, readUnreadThreadIds());
+  return {
+    ok: true,
+    source: 'codex-app-server+cached-session-events+desktop-read-state',
+    quota,
+    agents: [agent],
+    updatedAt: new Date().toISOString(),
+    metadataUpdatedAt: new Date(metadataUpdatedAt).toISOString(),
+    error: metadataError,
+  };
 }

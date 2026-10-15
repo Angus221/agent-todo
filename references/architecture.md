@@ -10,6 +10,8 @@ The skill is intentionally local-first:
 
 The dashboard always binds to `127.0.0.1:8721`. Every non-dashboard CLI operation probes `/api/health` first; when the Agent Todo service is absent, the CLI starts it and opens the dashboard before continuing.
 
+The visible dashboard polls todos and Codex activity every five seconds and refreshes immediately on focus. Full Codex quota and thread metadata remain cached for 15 seconds; unchanged session files reuse parsed activity facts, keeping the faster UI cadence lightweight.
+
 The Codex integration was informed by the MIT-licensed [itvincent-git/codex-usage-desktop](https://github.com/itvincent-git/codex-usage-desktop), especially its local-first session scanning and Codex `app-server` quota fallback. This implementation is original TypeScript code and does not copy its Rust modules.
 
 ## Status limits

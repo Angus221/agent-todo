@@ -15,9 +15,9 @@ const store = new TodoStore();
 let codexCache: any = { ok: false, agents: [], quota: { available: false, remainingPercent: 0 }, updatedAt: null, error: '尚未同步' };
 let codexRefresh: Promise<any> | null = null;
 
-async function refreshCodex() {
+async function refreshCodex(forceMetadata = false) {
   if (!codexRefresh) {
-    codexRefresh = fetchCodexSnapshot().then((value) => (codexCache = value)).finally(() => { codexRefresh = null; });
+    codexRefresh = fetchCodexSnapshot(forceMetadata).then((value) => (codexCache = value)).finally(() => { codexRefresh = null; });
   }
   return codexRefresh;
 }
@@ -82,10 +82,10 @@ async function api(req: IncomingMessage, res: ServerResponse, url: URL) {
     if (method === 'DELETE') return json(res, 200, { ok: true, ...store.delete(code) });
   }
   if (path === '/api/codex/status' && method === 'GET') {
-    if (!codexCache.updatedAt || Date.now() - Date.parse(codexCache.updatedAt) > 15_000) await refreshCodex();
+    if (!codexCache.updatedAt || Date.now() - Date.parse(codexCache.updatedAt) > 5_000) await refreshCodex();
     return json(res, 200, codexCache);
   }
-  if (path === '/api/codex/refresh' && method === 'POST') return json(res, 200, await refreshCodex());
+  if (path === '/api/codex/refresh' && method === 'POST') return json(res, 200, await refreshCodex(true));
   return json(res, 404, { ok: false, error: 'API endpoint not found.' });
 }
 
@@ -122,7 +122,7 @@ server.listen(port, host, () => {
   void refreshCodex();
 });
 
-const timer = setInterval(() => void refreshCodex(), 15_000);
+const timer = setInterval(() => void refreshCodex(), 5_000);
 timer.unref();
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => { clearInterval(timer); server.close(() => { store.close(); process.exit(0); }); });

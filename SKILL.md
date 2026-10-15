@@ -37,6 +37,8 @@ description: 在本地 Agent Todo SQLite 看板中创建、查询、更新、完
 
 看板和 CLI 共用同一个 SQLite 数据库。网页服务器固定监听 `127.0.0.1:8721`。看板通过本地 Codex `app-server` 读取额度，通过 Codex 会话事件判断当前任务状态，并从桌面端本地状态读取“已完成未读”线程。
 
+页面可见时，每 5 秒同步待办与 Codex 活动状态；页面重新获得焦点时立即同步。Codex 额度和线程元数据的完整扫描保持 15 秒缓存，避免频繁启动本地 Codex 查询进程。
+
 Agent 区始终只显示一个 Codex 办公位。办公桌上的每个任务块对应一个当前 Codex 任务：进行中显示蓝色流光，待用户确认显示橙色，已完成未读显示绿色；并行任务有几个就显示几个任务块，悬浮时显示对应的 Codex 任务标题。审批和用户输入仍必须回到 Codex 中处理。
 
 数据库和 API 细节见 [references/schema.md](references/schema.md)。实现边界和数据来源见 [references/architecture.md](references/architecture.md)。

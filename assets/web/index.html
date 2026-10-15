@@ -2343,7 +2343,7 @@
     alert('本地未找到 Vue 3 运行时，请确认同目录下存在 vue.global.prod.js 文件！');
   }
 
-  const { createApp, ref, computed, onMounted } = Vue;
+  const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
   function getFormattedDate(offsetDays = 0) {
     const d = new Date();
@@ -2892,27 +2892,48 @@
         };
       }
 
-      async function loadInitialData() {
-        try {
-          const response = await fetch('/api/state', { cache: 'no-store' });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const state = await response.json();
-          tasks.value = (state.tasks || []).map(fromApiTask);
-          categories.value = state.categories || DEFAULT_CATEGORIES;
-          if (Array.isArray(state.statuses) && state.statuses.length >= 3) {
-            kanbanColumns.value = state.statuses;
-          }
-        } catch (e) {
-          tasks.value = [];
-          categories.value = DEFAULT_CATEGORIES;
-          showToast(`待办数据库连接失败: ${e.message || e}`);
-        }
+      let saveTimer = null;
+      let isSavingData = false;
+      let todoRefresh = null;
+
+      function todoRevision(items) {
+        return (items || []).map(item => `${item.id}:${item.version}:${item.updatedAt || ''}`).join('|');
       }
 
-      let saveTimer = null;
+      async function loadInitialData(silent = false) {
+        if (saveTimer || isSavingData) return;
+        if (todoRefresh) return todoRefresh;
+        todoRefresh = (async () => {
+          try {
+            const response = await fetch('/api/state', { cache: 'no-store' });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const state = await response.json();
+            const incomingTasks = (state.tasks || []).map(fromApiTask);
+            if (todoRevision(tasks.value) !== todoRevision(incomingTasks)) tasks.value = incomingTasks;
+            categories.value = state.categories || DEFAULT_CATEGORIES;
+            if (Array.isArray(state.statuses) && state.statuses.length >= 3) {
+              kanbanColumns.value = state.statuses;
+            }
+          } catch (e) {
+            if (!silent) {
+              tasks.value = [];
+              categories.value = DEFAULT_CATEGORIES;
+              showToast(`待办数据库连接失败: ${e.message || e}`);
+            } else {
+              console.warn('Todo refresh failed', e);
+            }
+          } finally {
+            todoRefresh = null;
+          }
+        })();
+        return todoRefresh;
+      }
+
       function saveData() {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(async () => {
+          saveTimer = null;
+          isSavingData = true;
           try {
             const response = await fetch('/api/state', {
               method: 'PATCH',
@@ -2931,6 +2952,8 @@
           } catch (e) {
             console.error('SQLite sync error', e);
             showToast(`保存失败: ${e.message || e}`);
+          } finally {
+            isSavingData = false;
           }
         }, 120);
       }
@@ -3875,10 +3898,26 @@ Please navigate to the Project Path specified above, analyze the current workspa
         }
       }
 
+      let todoPollTimer = null;
+      let codexPollTimer = null;
+
+      function refreshVisibleData() {
+        if (document.visibilityState !== 'visible') return;
+        void loadInitialData(true);
+        void fetchCodexStatus(false, false);
+      }
+
       onMounted(async () => {
         await loadInitialData();
         await fetchCodexStatus(false, false);
-        window.setInterval(() => fetchCodexStatus(false, false), 15000);
+        todoPollTimer = window.setInterval(() => {
+          if (document.visibilityState === 'visible') void loadInitialData(true);
+        }, 5000);
+        codexPollTimer = window.setInterval(() => {
+          if (document.visibilityState === 'visible') void fetchCodexStatus(false, false);
+        }, 5000);
+        document.addEventListener('visibilitychange', refreshVisibleData);
+        window.addEventListener('focus', refreshVisibleData);
         try {
           const savedTheme = localStorage.getItem('agentflow_theme');
           if (savedTheme && ['mono', 'indigo', 'terracotta'].includes(savedTheme)) {
@@ -3895,6 +3934,13 @@ Please navigate to the Project Path specified above, analyze the current workspa
         window.addEventListener('click', () => {
           showThemeMenu.value = false;
         });
+      });
+
+      onUnmounted(() => {
+        if (todoPollTimer) window.clearInterval(todoPollTimer);
+        if (codexPollTimer) window.clearInterval(codexPollTimer);
+        document.removeEventListener('visibilitychange', refreshVisibleData);
+        window.removeEventListener('focus', refreshVisibleData);
       });
 
       return {

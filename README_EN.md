@@ -10,6 +10,7 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 - Assign stable four-digit codes and use optimistic concurrency for safe updates.
 - Store all todo data locally in SQLite with no external database.
 - Use the fixed local address `http://127.0.0.1:8721/`; the first operation starts and opens the dashboard automatically.
+- Sync todos and Codex activity every five seconds while visible, with an immediate refresh when the page regains focus.
 - Show one Codex workstation with one task block for every current parallel task.
 - Render running tasks with a blue light stream, user-confirmation waits in orange, and completed unread tasks in green.
 - Read quota from the local Codex `app-server` and infer activity from local session events.
