@@ -1,0 +1,24 @@
+{
+  "name": "agent-todo-skill",
+  "version": "0.1.0",
+  "description": "A local-first SQLite todo skill and Codex activity dashboard.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Angus wang",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Angus221/agent-todo.git"
+  },
+  "homepage": "https://github.com/Angus221/agent-todo#readme",
+  "bugs": {
+    "url": "https://github.com/Angus221/agent-todo/issues"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node scripts/server.ts",
+    "test": "node --test scripts/tests/*.test.ts"
+  }
+}

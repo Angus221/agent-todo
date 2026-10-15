@@ -1,0 +1,8 @@
+interface:
+  display_name: "Agent Todo"
+  short_description: "用 SQLite 管理待办并查看 Codex 工作状态"
+  brand_color: "#18181B"
+  default_prompt: "Use $agent-todo to add this task to my local dashboard and show me the current Codex status."
+
+policy:
+  allow_implicit_invocation: true

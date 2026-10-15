@@ -1,0 +1,4050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentFlow - 现代智能待办调度工作台 (Vue 3)</title>
+  <meta name="description" content="AI Agent 驱动的现代化待办看板，左深右浅混搭设计，活力橙主题色，支持看板、列表、大日历三大视图">
+
+  <!-- 1. 本地免依赖加载 Vue 3 核心 (已持久化在本地，零网络依赖，秒级直开) -->
+  <script src="./vue.global.prod.js"></script>
+
+  <!-- 2. 本地免依赖加载 Marked.js (Markdown 渲染) -->
+  <script src="./marked.min.js"></script>
+
+  <!-- 3. Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    if (window.tailwind) {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: 'var(--brand-50)',
+                100: 'var(--brand-100)',
+                200: 'var(--brand-200)',
+                300: 'var(--brand-300)',
+                400: 'var(--brand-400)',
+                500: 'var(--brand-500)',
+                600: 'var(--brand-600)',
+                700: 'var(--brand-700)',
+              },
+              sidebar: {
+                950: '#0b0f19', // 左侧深黑极窄边栏 (全局保持深沉科技质感)
+                900: '#111827',
+                850: '#182032',
+                800: '#1f293d',
+              }
+            },
+            boxShadow: {
+              'glow-brand': '0 0 16px -2px var(--brand-glow)',
+              'card': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03)',
+              'card-hover': '0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04)',
+            }
+          }
+        }
+      };
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+    /* ========================================================================= */
+    /* 3 套主题设计系统 Token                                                    */
+    /* ========================================================================= */
+
+    /* 方案 2（默认）：Vercel / Notion 风格「极简单色黑白灰 Mono + 极克制点缀」 */
+    :root, [data-theme="mono"] {
+      --brand-50: #f4f4f5;     /* zinc-100 极浅灰激活底色 */
+      --brand-100: #e4e4e7;    /* zinc-200 */
+      --brand-200: #d4d4d8;    /* zinc-300 */
+      --brand-300: #a1a1aa;    /* zinc-400 */
+      --brand-400: #52525b;    /* zinc-600 */
+      --brand-500: #18181b;    /* 主交互色 zinc-900 (石墨黑) */
+      --brand-600: #09090b;    /* Hover zinc-950 */
+      --brand-700: #000000;
+      
+      --brand-glow: rgba(24, 24, 27, 0.25);
+      --app-bg: #fafafa;
+      --card-border: #e4e4e7;
+      
+      --badge-normal-bg: #f4f4f5;
+      --badge-normal-text: #71717a;
+      --badge-active-bg: #e4e4e7;
+      --badge-active-text: #18181b;
+      
+      --today-ring: #18181b;
+      --today-bg: #f4f4f5;
+      --banner-bg: #f4f4f5;
+      --banner-border: #e4e4e7;
+      --banner-text: #18181b;
+      --tag-active-bg: #18181b;
+      --tag-active-text: #ffffff;
+      --code-color: #18181b;
+    }
+
+    /* 方案 1：Linear 风格「深邃冷靛蓝 / Electric Indigo」 */
+    [data-theme="indigo"] {
+      --brand-50: #eef2ff;     /* indigo-50 微冷浅底 */
+      --brand-100: #e0e7ff;    /* indigo-100 */
+      --brand-200: #c7d2fe;    /* indigo-200 */
+      --brand-300: #a5b4fc;    /* indigo-300 */
+      --brand-400: #818cf8;    /* indigo-400 */
+      --brand-500: #4f46e5;    /* 主交互色 indigo-600 */
+      --brand-600: #4338ca;    /* Hover indigo-700 */
+      --brand-700: #3730a3;    /* indigo-800 文字 */
+      
+      --brand-glow: rgba(79, 70, 229, 0.35);
+      --app-bg: #f8fafc;       /* slate-50 微冷灰 */
+      --card-border: #e2e8f0;  /* slate-200 */
+      
+      --badge-normal-bg: #f1f5f9;
+      --badge-normal-text: #64748b;
+      --badge-active-bg: #4f46e5;
+      --badge-active-text: #ffffff;
+      
+      --today-ring: #4f46e5;
+      --today-bg: #eef2ff;
+      --banner-bg: #eef2ff;
+      --banner-border: #c7d2fe;
+      --banner-text: #3730a3;
+      --tag-active-bg: #4f46e5;
+      --tag-active-text: #ffffff;
+      --code-color: #4f46e5;
+    }
+
+    /* 方案 3：复古高智感「焦糖陶土 / Terracotta」 */
+    [data-theme="terracotta"] {
+      --brand-50: #ffedd5;     /* orange-100 极浅底色 */
+      --brand-100: #fed7aa;    /* orange-200 */
+      --brand-200: #fdba74;    /* orange-300 */
+      --brand-300: #fb923c;    /* orange-400 */
+      --brand-400: #ea580c;    /* orange-600 */
+      --brand-500: #c2410c;    /* 主交互色 orange-700 焦糖陶土 */
+      --brand-600: #9a3412;    /* Hover orange-800 */
+      --brand-700: #7c2d12;    /* orange-900 */
+      
+      --brand-glow: rgba(194, 65, 12, 0.35);
+      --app-bg: #fafaf9;       /* stone-50 暖石色 */
+      --card-border: #e7e5e4;  /* stone-200 */
+      
+      --badge-normal-bg: #f5f5f4;
+      --badge-normal-text: #78716c;
+      --badge-active-bg: #c2410c;
+      --badge-active-text: #ffffff;
+      
+      --today-ring: #c2410c;
+      --today-bg: #ffedd5;
+      --banner-bg: #ffedd5;
+      --banner-border: #fed7aa;
+      --banner-text: #9a3412;
+      --tag-active-bg: #c2410c;
+      --tag-active-text: #ffffff;
+      --code-color: #c2410c;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      background-color: var(--app-bg);
+      color: #1e293b;
+      transition: background-color 0.25s ease;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 必须：Vue 挂载前彻底隐藏未经解析的内容，杜绝未解析抽屉裸露 */
+    [v-cloak] {
+      display: none !important;
+    }
+
+    /* 精致轻量滚动条 */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--brand-500);
+    }
+
+    /* 拖拽反馈样式 */
+    .kanban-card.is-dragging {
+      opacity: 0.35;
+      transform: scale(0.96);
+      border-color: var(--brand-500);
+    }
+
+    .drop-highlight {
+      background: var(--brand-50) !important;
+      border: 2px dashed var(--brand-500) !important;
+    }
+
+    /* Markdown 预览区排版 */
+    .markdown-body h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: #1e293b; }
+    .markdown-body h2 { font-size: 1.1rem; font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.4rem; color: #334155; }
+    .markdown-body h3 { font-size: 0.95rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.3rem; color: #475569; }
+    .markdown-body p { margin-bottom: 0.5rem; line-height: 1.5; color: #64748b; font-size: 0.85rem; }
+    .markdown-body ul, .markdown-body ol { padding-left: 1.25rem; margin-bottom: 0.5rem; color: #64748b; font-size: 0.85rem; }
+    .markdown-body li { margin-bottom: 0.2rem; }
+    .markdown-body code { font-family: 'JetBrains Mono', monospace; background: #f1f5f9; padding: 2px 5px; border-radius: 4px; color: var(--code-color); font-size: 0.8rem; }
+    .markdown-body pre { background: #0f172a; padding: 0.75rem; border-radius: 6px; overflow-x: auto; margin: 0.5rem 0; color: #e2e8f0; }
+    .markdown-body pre code { background: transparent; padding: 0; color: #fed7aa; }
+    .markdown-body blockquote { border-left: 3px solid var(--brand-500); padding-left: 0.75rem; color: #64748b; font-style: italic; margin: 0.5rem 0; background: var(--brand-50); padding-top: 2px; padding-bottom: 2px; }
+
+    /* ========================================================================= */
+    /* 2.5D AI Agent 开放办公区 (小人、办公桌与桌面水柱额度器)                        */
+    /* ========================================================================= */
+    .workstation {
+      --robot-body: #334155;        /* 统一深岩灰金属机身与双臂 */
+      --robot-joint: #1e293b;       /* 机械脖颈与背甲关节 */
+      --robot-seam: #475569;        /* 装甲缝隙高光 */
+      --robot-hand: #64748b;        /* 机械夹爪手部 */
+    }
+    .ws-codex {
+      --hp-main: #10b981;           /* Codex：翡翠绿耳机 */
+      --hp-light: #34d399;
+      --hp-dark: #059669;
+    }
+    .ws-claude-code {
+      --hp-main: #ea580c;           /* Claude：陶土暖橙耳机 */
+      --hp-light: #fb923c;
+      --hp-dark: #c2410c;
+    }
+    .ws-browser-agent {
+      --hp-main: #0284c7;           /* Browser：天空湖蓝耳机 */
+      --hp-light: #38bdf8;
+      --hp-dark: #0369a1;
+    }
+    .ws-data-agent {
+      --hp-main: #6366f1;           /* Data：星际蓝紫耳机 */
+      --hp-light: #818cf8;
+      --hp-dark: #4f46e5;
+    }
+    .ws-ops-agent {
+      --hp-main: #f43f5e;           /* Ops：玫瑰红耳机 */
+      --hp-light: #fb7185;
+      --hp-dark: #e11d48;
+    }
+
+    /* 电脑屏幕状态颜色变量 */
+    .workstation[data-state="busy"] {
+      --screen-frame-glow: rgba(59, 130, 246, 0.38);
+      --screen-bg: #4a90e2;
+    }
+    .workstation[data-state="confirm"],
+    .workstation[data-state="waiting_approval"] {
+      --screen-frame-glow: rgba(245, 158, 11, 0.6);
+      --screen-bg: #d97706;
+    }
+    .workstation[data-state="idle"] {
+      --screen-frame-glow: rgba(0, 0, 0, 0);
+      --screen-bg: #141619;
+    }
+
+    /* 桌面圆柱体水柱三档颜色状态机 */
+    .workstation[data-quota-level="high"] {
+      --liquid-body: #10b981;
+      --liquid-top: #34d399;
+      --cylinder-tint: rgba(209, 250, 229, 0.45);
+      --cylinder-rim: #6ee7b7;
+      --cylinder-text: #064e3b;
+    }
+    .workstation[data-quota-level="medium"] {
+      --liquid-body: #f59e0b;
+      --liquid-top: #fbbf24;
+      --cylinder-tint: rgba(254, 243, 199, 0.52);
+      --cylinder-rim: #fdba74;
+      --cylinder-text: #78350f;
+    }
+    .workstation[data-quota-level="low"] {
+      --liquid-body: #ef4444;
+      --liquid-top: #f87171;
+      --cylinder-tint: rgba(254, 226, 226, 0.55);
+      --cylinder-rim: #fca5a5;
+      --cylinder-text: #7f1d1d;
+    }
+
+    .liquid-transition {
+      transition: all 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 机械臂轴心 */
+    .char-arm-left,
+    .char-arm-right,
+    .char-arm-right-typing,
+    .char-arm-right-waving,
+    .forearm-waving-swing {
+      transform-origin: 0px 0px;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .char-head,
+    .char-upper-body,
+    .chair-movable {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .robot-character {
+      transform-box: fill-box;
+      transform-origin: center bottom;
+      transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                  transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .workstation[data-state="idle"] .robot-character {
+      opacity: 0;
+      transform: translateY(12px) scale(0.94);
+      pointer-events: none;
+    }
+
+    /* 动作 A：工作中 (Busy) */
+    @keyframes head-focus-nod {
+      0%, 100% { transform: translateY(0) rotate(-1deg); }
+      50% { transform: translateY(1.5px) rotate(1.2deg); }
+    }
+    @keyframes shoulder-left-type {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(7deg); }
+    }
+    @keyframes shoulder-right-type {
+      0%, 100% { transform: rotate(-7deg); }
+      50% { transform: rotate(0deg); }
+    }
+    @keyframes body-breathe-work {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(1px); }
+    }
+    @keyframes codex-progress {
+      0% { width: 12px; }
+      50% { width: 52px; }
+      100% { width: 18px; }
+    }
+
+    .workstation[data-state="busy"] .char-head {
+      animation: head-focus-nod 1.4s ease-in-out infinite;
+    }
+    .workstation[data-state="busy"] .char-arm-left {
+      animation: shoulder-left-type 0.22s ease-in-out infinite;
+    }
+    .workstation[data-state="busy"] .char-arm-right-typing {
+      animation: shoulder-right-type 0.22s ease-in-out infinite;
+    }
+    .workstation[data-state="busy"] .char-upper-body {
+      animation: body-breathe-work 1.4s ease-in-out infinite;
+    }
+    .workstation[data-state="busy"] .codex-bar {
+      animation: codex-progress 2.2s ease-in-out infinite;
+    }
+
+    /* 动作 B：待确认 (Confirm / Waiting Approval) 举起右手挥手 */
+    @keyframes head-tilt-wait {
+      0%, 100% { transform: rotate(2deg) translateY(0); }
+      50% { transform: rotate(6.5deg) translateY(-1px); }
+    }
+    @keyframes shoulder-waving-sway {
+      0% { transform: rotate(-5deg); }
+      100% { transform: rotate(5deg); }
+    }
+    @keyframes forearm-wave {
+      0% { transform: rotate(-22deg); }
+      100% { transform: rotate(26deg); }
+    }
+    @keyframes bubble-bounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-5px) scale(1.04); }
+    }
+    @keyframes screen-confirm-pulse {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.35)); }
+      50% { filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.78)); }
+    }
+
+    .char-arm-right-typing {
+      opacity: 1;
+      transition: opacity 0.25s ease;
+    }
+    .char-arm-right-waving {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .workstation[data-state="waiting_approval"] .char-head,
+    .workstation[data-state="confirm"] .char-head {
+      animation: head-tilt-wait 2s ease-in-out infinite;
+    }
+    .workstation[data-state="waiting_approval"] .char-arm-left,
+    .workstation[data-state="confirm"] .char-arm-left {
+      transform: rotate(-6deg);
+    }
+    .workstation[data-state="waiting_approval"] .char-arm-right-typing,
+    .workstation[data-state="confirm"] .char-arm-right-typing {
+      opacity: 0;
+    }
+    .workstation[data-state="waiting_approval"] .char-arm-right-waving,
+    .workstation[data-state="confirm"] .char-arm-right-waving {
+      opacity: 1;
+      animation: shoulder-waving-sway 0.85s ease-in-out infinite alternate;
+    }
+    .workstation[data-state="waiting_approval"] .forearm-waving-swing,
+    .workstation[data-state="confirm"] .forearm-waving-swing {
+      animation: forearm-wave 0.42s ease-in-out infinite alternate;
+    }
+    .workstation[data-state="waiting_approval"] .confirm-bubble,
+    .workstation[data-state="confirm"] .confirm-bubble {
+      opacity: 1;
+      transform: scale(1);
+      animation: bubble-bounce 1s ease-in-out infinite;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .workstation[data-state="waiting_approval"] .monitor-bezel,
+    .workstation[data-state="confirm"] .monitor-bezel {
+      animation: screen-confirm-pulse 1.4s ease-in-out infinite;
+    }
+
+    .confirm-bubble {
+      transform-box: fill-box;
+      transform-origin: center;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+    }
+    .confirm-bubble:hover {
+      filter: brightness(1.08);
+    }
+
+    /* 动作 C：空闲 (Idle · 空座位) */
+    @keyframes empty-chair-swivel {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      50% { transform: translateX(1.5px) rotate(0.8deg); }
+    }
+    .workstation[data-state="idle"] .chair-movable {
+      animation: empty-chair-swivel 4.2s ease-in-out infinite;
+    }
+
+    /* 屏幕三态图层 */
+    .screen-content-busy,
+    .screen-content-confirm,
+    .screen-content-idle {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .workstation[data-state="busy"] .screen-content-busy { opacity: 1; }
+    .workstation[data-state="waiting_approval"] .screen-content-confirm,
+    .workstation[data-state="confirm"] .screen-content-confirm { opacity: 1; }
+    .workstation[data-state="idle"] .screen-content-idle { opacity: 1; }
+
+    /* ========================================================================= */
+    /* 2.5D 桌面右侧任务长方体堆叠 (绿-最近完成, 橙-待确认闪烁, 蓝-进行中流光) */
+    /* ========================================================================= */
+    .task-cuboid {
+      cursor: pointer;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.22s ease;
+    }
+    .task-cuboid:hover {
+      filter: brightness(1.2) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
+    }
+
+    /* 橙色待确认闪烁动画 */
+    @keyframes task-orange-blink {
+      0%, 100% {
+        filter: drop-shadow(0 0 1px rgba(245, 158, 11, 0.45));
+        opacity: 1;
+      }
+      50% {
+        filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.95)) brightness(1.28);
+        opacity: 0.7;
+      }
+    }
+    .task-block-orange-pulse {
+      animation: task-orange-blink 1.05s ease-in-out infinite;
+    }
+
+    /* 蓝色进行中流光动画 */
+    @keyframes task-blue-stream {
+      0%, 100% {
+        filter: drop-shadow(0 0 2px rgba(14, 165, 233, 0.45));
+      }
+      50% {
+        filter: drop-shadow(0 0 9px rgba(56, 189, 248, 0.95)) brightness(1.24);
+      }
+    }
+    .task-block-blue-stream {
+      animation: task-blue-stream 1.8s ease-in-out infinite;
+    }
+
+    /* 顶面流光跑马灯 */
+    @keyframes task-beam-flow {
+      0% {
+        stroke-dashoffset: 40;
+        opacity: 0.35;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        stroke-dashoffset: 0;
+        opacity: 0.35;
+      }
+    }
+    .task-stream-beam {
+      stroke-dasharray: 6 12;
+      animation: task-beam-flow 1.3s linear infinite;
+    }
+
+    .task-block-done {
+      filter: drop-shadow(0 0 1.5px rgba(16, 185, 129, 0.35));
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden">
+
+<!-- Vue 3 核心容器 (加 v-cloak 防闪烁) -->
+<div id="app" v-cloak class="flex h-screen w-screen overflow-hidden">
+
+  <!-- ========================================================================= -->
+  <!-- 左侧栏：极窄深色边栏 (Deep Dark Slim Sidebar - 60px)                       -->
+  <!-- ========================================================================= -->
+  <aside class="w-[60px] bg-sidebar-950 border-r border-slate-800/80 flex flex-col items-center py-3 select-none flex-shrink-0 z-30 shadow-lg">
+    <!-- Logo (A 字母高科技极光风格，完全参照设计图) -->
+    <div class="mb-5 relative cursor-pointer group" title="AgentFlow Studio">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-cyan-500 to-indigo-500 flex items-center justify-center text-white font-black text-xl shadow-[0_0_20px_rgba(6,182,212,0.6)] group-hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] transition-all">
+        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.5L3.5 20.5h4.2l1.9-4.2h4.8l1.9 4.2h4.2L12 2.5zm0 5.8l1.8 4.2h-3.6L12 8.3z"/>
+        </svg>
+      </div>
+      <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-sidebar-950 rounded-full animate-pulse" title="系统运行就绪"></div>
+    </div>
+
+    <!-- 主模块菜单 -->
+    <nav class="flex-1 flex flex-col items-center gap-2.5 w-full px-2">
+      <!-- 1. 工作台 (首页) -->
+      <button 
+        @click="activePrimaryModule = 'workbench'"
+        :class="activePrimaryModule === 'workbench' ? 'bg-gradient-to-b from-blue-500 to-indigo-600 text-white shadow-[0_4px_16px_rgba(59,130,246,0.45)]' : 'text-slate-400 hover:text-slate-200 hover:bg-sidebar-850'"
+        class="w-11 h-11 rounded-xl flex flex-col items-center justify-center transition-all duration-200 relative group cursor-pointer"
+        id="nav-workbench-btn">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        <span class="text-[9px] font-medium tracking-tight mt-0.5">工作台</span>
+        <!-- Tooltip -->
+        <span class="absolute left-14 px-2.5 py-1 bg-slate-900 text-xs text-white rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-50">
+          个人工作台 (首页)
+        </span>
+      </button>
+
+      <!-- 2. 待办中心 -->
+      <button 
+        @click="activePrimaryModule = 'todos'"
+        :class="activePrimaryModule === 'todos' ? 'bg-gradient-to-b from-blue-500 to-indigo-600 text-white shadow-[0_4px_16px_rgba(59,130,246,0.45)]' : 'text-slate-400 hover:text-slate-200 hover:bg-sidebar-850'"
+        class="w-11 h-11 rounded-xl flex flex-col items-center justify-center transition-all duration-200 relative group cursor-pointer"
+        id="nav-todos-btn">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <span class="text-[9px] font-medium tracking-tight mt-0.5">待办</span>
+        <!-- Tooltip -->
+        <span class="absolute left-14 px-2.5 py-1 bg-slate-900 text-xs text-white rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-50">
+          待办中心 (看板/列表/日历)
+        </span>
+      </button>
+
+    </nav>
+
+    <!-- 底部状态指示、主题切换与头像 -->
+    <div class="flex flex-col items-center gap-2.5 pt-2 w-full border-t border-slate-800/80 relative">
+      
+      <!-- 主题切换入口 (左下角按钮，点击悬浮选择主题) -->
+      <div class="relative" @mouseenter="isHoveringTheme = true" @mouseleave="isHoveringTheme = false">
+        <button 
+          @click.stop="showThemeMenu = !showThemeMenu" 
+          :class="(showThemeMenu || isHoveringTheme) ? 'bg-sidebar-800 text-white ring-1 ring-slate-700' : 'text-slate-400 hover:text-slate-100 hover:bg-sidebar-850'"
+          class="w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer relative group" 
+          id="theme-toggle-btn"
+          title="点击或悬浮选择主题">
+          <!-- 精致调色盘图标 -->
+          <svg class="w-5 h-5 transition-transform group-hover:rotate-12 duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 21a4 4 0 01-4-4 5 5 0 015-5c.6 0 1.2.1 1.7.3l2.8-2.8a2 2 0 012.8 0l1.4 1.4a2 2 0 010 2.8l-2.8 2.8c.2.5.3 1.1.3 1.7a5 5 0 01-5 5 4 4 0 01-4-4zm10-14l2-2m-4 0l2 2m-6 2l2-2" />
+          </svg>
+          <!-- 当前激活主题色点指示器 -->
+          <span 
+            class="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-sidebar-950 transition-colors shadow-xs"
+            :style="{ backgroundColor: currentThemeConfig.primaryDot }"></span>
+
+          <!-- 极窄边栏默认 Tooltip -->
+          <span v-if="!showThemeMenu && !isHoveringTheme" class="absolute left-14 px-2.5 py-1 bg-slate-900 text-xs text-white rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-50">
+            主题配色 (当前: {{ currentThemeConfig.name }})
+          </span>
+        </button>
+
+        <!-- 悬浮或点击弹出的主题选择面板 (Popover) -->
+        <div 
+          v-if="showThemeMenu || isHoveringTheme" 
+          @click.stop
+          id="theme-popover"
+          class="absolute left-14 bottom-0 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3.5 z-50 transition-all duration-200 backdrop-blur-md">
+          
+          <!-- 面板头部 -->
+          <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+            <div class="flex items-center gap-1.5">
+              <span class="text-sm">🎨</span>
+              <span class="text-xs font-bold text-slate-800">界面主题风格</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">3 个精调主题</span>
+          </div>
+
+          <!-- 3 个主题选项卡片 -->
+          <div class="space-y-2">
+            <div 
+              v-for="t in themes" 
+              :key="t.id"
+              @click.stop="setTheme(t.id)"
+              :id="'theme-option-' + t.id"
+              :class="currentTheme === t.id ? 'border-slate-900 bg-slate-50/90 ring-1 ring-slate-900/10 shadow-xs' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'"
+              class="p-2.5 rounded-xl border transition-all cursor-pointer group flex flex-col gap-1.5">
+              
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <!-- 色彩样本点 -->
+                  <div class="flex items-center -space-x-1">
+                    <span class="w-3.5 h-3.5 rounded-full ring-2 ring-white shadow-xs" :style="{ backgroundColor: t.primaryDot }"></span>
+                    <span class="w-3.5 h-3.5 rounded-full ring-2 ring-white shadow-xs" :style="{ backgroundColor: t.surfaceDot }"></span>
+                    <span class="w-3.5 h-3.5 rounded-full ring-2 ring-white shadow-xs" :style="{ backgroundColor: t.textDot }"></span>
+                  </div>
+                  <span class="text-xs font-bold text-slate-800">{{ t.name }}</span>
+                </div>
+                
+                <!-- 激活对勾标识 -->
+                <div v-if="currentTheme === t.id" class="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">
+                  ✓
+                </div>
+              </div>
+
+              <!-- 方案标签与描述 -->
+              <div class="flex items-center gap-1.5">
+                <span class="text-[9px] px-1.5 py-0.5 rounded font-medium bg-slate-200/70 text-slate-600 flex-shrink-0">
+                  {{ t.tag }}
+                </span>
+                <span class="text-[10px] text-slate-500 truncate">
+                  {{ t.desc }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部小贴士 -->
+          <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+            <span>实时生效 · 本地持久化保存</span>
+            <button @click.stop="showThemeMenu = false; isHoveringTheme = false" class="hover:text-slate-700 cursor-pointer text-slate-400">
+              收起 ✕
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用户/AI 头像 -->
+      <div class="cursor-pointer relative mt-1" @click="showToast('当前主题：' + currentThemeConfig.name)">
+        <div class="w-8 h-8 rounded-full ring-1 ring-blue-500/60 bg-gradient-to-tr from-slate-700 to-slate-800 flex items-center justify-center text-xs font-semibold text-cyan-300">
+          AI
+        </div>
+        <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#090e1a] rounded-full"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========================================================================= -->
+  <!-- 第二栏：待办过滤调度中心 (浅色面板 - 224px)                                -->
+  <!-- ========================================================================= -->
+  <aside v-if="activePrimaryModule === 'todos'" class="w-56 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 select-none z-20">
+    <!-- 顶部标题与新建按钮 (原生精致 Tailwind 样式) -->
+    <div class="p-3.5 border-b border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-brand-500"></div>
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-700">待办过滤调度</span>
+      </div>
+      <button 
+        @click="openCreateDrawer" 
+        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium shadow-sm transition-all active:scale-95 cursor-pointer">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        新建
+      </button>
+    </div>
+
+    <!-- 过滤器主体 -->
+    <div class="flex-1 overflow-y-auto px-2.5 py-3 space-y-4">
+
+      <!-- 1. 时间规划 -->
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 mb-1.5 flex items-center justify-between">
+          <span>时间规划</span>
+          <span class="text-[10px] text-slate-500 font-mono">{{ totalTaskCount }} 项</span>
+        </div>
+        <ul class="space-y-0.5">
+          <li v-for="item in timeFilters" :key="item.id">
+            <button 
+              @click="activeTimeFilter = item.id" 
+              :class="activeTimeFilter === item.id ? 'bg-brand-50 text-brand-600 font-semibold border-l-2 border-brand-500 pl-2 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 pl-2.5'"
+              class="w-full text-left py-1.5 pr-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer">
+              <span class="flex items-center gap-2">
+                <span class="text-xs">{{ item.icon }}</span>
+                <span>{{ item.label }}</span>
+              </span>
+              <span 
+                :style="{
+                  backgroundColor: activeTimeFilter === item.id ? 'var(--badge-active-bg)' : 'var(--badge-normal-bg)',
+                  color: activeTimeFilter === item.id ? 'var(--badge-active-text)' : 'var(--badge-normal-text)'
+                }"
+                class="text-[10px] px-1.5 py-0.5 rounded-full font-mono min-w-4 text-center transition-colors">
+                {{ getFilterCount(item.id) }}
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 2. 项目分类 (支持自定义新增与删除) -->
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 mb-1.5 flex items-center justify-between">
+          <span>项目分类</span>
+          <button @click="showAddCategoryInput = !showAddCategoryInput" class="text-brand-500 hover:text-brand-600 text-xs px-1 hover:bg-brand-50 rounded transition-colors cursor-pointer" title="添加分类">
+            + 添加
+          </button>
+        </div>
+
+        <!-- 快速添加分类输入框 -->
+        <div v-if="showAddCategoryInput" class="px-2 mb-2 flex items-center gap-1">
+          <input 
+            v-model.trim="newCategoryName" 
+            @keyup.enter="createCategory"
+            @keyup.esc="showAddCategoryInput = false"
+            placeholder="输入新分类名..." 
+            class="w-full px-2 py-1 bg-slate-50 border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 focus:bg-white" 
+            autofocus
+          />
+          <button @click="createCategory" class="px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 rounded cursor-pointer">✓</button>
+        </div>
+
+        <ul class="space-y-0.5">
+          <!-- 全部选项 -->
+          <li>
+            <button 
+              @click="activeCategory = null"
+              :class="activeCategory === null ? 'bg-brand-50 text-brand-600 font-semibold border-l-2 border-brand-500 pl-2 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 pl-2.5'"
+              class="w-full text-left py-1.5 pr-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer">
+              <span class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>全部分类</span>
+              </span>
+              <span 
+                :style="{
+                  backgroundColor: activeCategory === null ? 'var(--badge-active-bg)' : 'var(--badge-normal-bg)',
+                  color: activeCategory === null ? 'var(--badge-active-text)' : 'var(--badge-normal-text)'
+                }"
+                class="text-[10px] px-1.5 py-0.5 rounded-full font-mono transition-colors">
+                {{ tasks.length }}
+              </span>
+            </button>
+          </li>
+
+          <!-- 分类列表 -->
+          <li v-for="cat in categories" :key="cat.id" class="group relative">
+            <div 
+              @click="activeCategory = activeCategory === cat.id ? null : cat.id"
+              :class="activeCategory === cat.id ? 'bg-brand-50 text-brand-600 font-semibold border-l-2 border-brand-500 pl-2 shadow-xs' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 pl-2.5'"
+              class="w-full text-left py-1.5 pr-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer">
+              <span class="flex items-center gap-2 truncate pr-1">
+                <span class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: cat.color || '#f97316' }"></span>
+                <span class="truncate">{{ cat.name }}</span>
+              </span>
+              <div class="flex items-center gap-1">
+                <span 
+                  :style="{
+                    backgroundColor: activeCategory === cat.id ? 'var(--badge-active-bg)' : 'var(--badge-normal-bg)',
+                    color: activeCategory === cat.id ? 'var(--badge-active-text)' : 'var(--badge-normal-text)'
+                  }"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full font-mono min-w-4 text-center transition-colors">
+                  {{ getCategoryCount(cat.id) }}
+                </span>
+                <button 
+                  v-if="cat.custom" 
+                  type="button"
+                  @click.stop="removeCategory(cat.id)" 
+                  class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 p-0.5 transition-opacity cursor-pointer" 
+                  title="删除该分类">
+                  ✕
+                </button>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 3. 标签索引 (Tags，最多展示 5 个，其他折叠) -->
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 mb-1.5 flex items-center justify-between">
+          <span>标签索引</span>
+          <span v-if="selectedTag" @click="selectedTag = null" class="cursor-pointer text-[10px] text-brand-500 hover:underline">清除</span>
+        </div>
+        <div class="flex flex-wrap gap-1 px-1">
+          <button 
+            v-for="tag in displayedTags" 
+            :key="tag"
+            @click="selectedTag = selectedTag === tag ? null : tag"
+            :style="{
+              backgroundColor: selectedTag === tag ? 'var(--tag-active-bg)' : 'var(--badge-normal-bg)',
+              color: selectedTag === tag ? 'var(--tag-active-text)' : 'var(--badge-normal-text)',
+              borderColor: selectedTag === tag ? 'var(--brand-500)' : 'var(--card-border)'
+            }"
+            class="text-[11px] px-2 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer">
+            <span>#{{ tag }}</span>
+            <span class="text-[9px] opacity-75 font-mono">{{ getTagCount(tag) }}</span>
+          </button>
+          
+          <!-- 超过 5 个标签时的展开/折叠切换按钮 -->
+          <button 
+            v-if="allTags.length > 5"
+            type="button"
+            @click="isTagsExpanded = !isTagsExpanded"
+            class="text-[10px] px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center gap-0.5 cursor-pointer">
+            <span>{{ isTagsExpanded ? '收起 ▴' : `+${allTags.length - 5} 展开 ▾` }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4. 优先级快捷过滤 -->
+      <div>
+        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 mb-1.5">
+          <span>优先级过滤</span>
+        </div>
+        <div class="grid grid-cols-2 gap-1 px-1">
+          <button 
+            v-for="p in priorityOptions" 
+            :key="p.value"
+            @click="selectedPriority = selectedPriority === p.value ? null : p.value"
+            :class="selectedPriority === p.value ? 'bg-brand-50 text-brand-700 border-brand-500 font-semibold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200'"
+            class="border rounded px-1.5 py-1 text-[11px] flex items-center justify-between transition-colors cursor-pointer">
+            <span class="flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full" :class="p.badgeBg"></span>
+              <span>{{ p.label }}</span>
+            </span>
+            <span class="text-[9px] font-mono text-slate-400">{{ getPriorityCount(p.value) }}</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ========================================================================= -->
+  <!-- 主区域：浅色现代内容主视窗 (Main View - Light Modern)                      -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 flex flex-col overflow-hidden relative transition-colors duration-200" :style="{ backgroundColor: 'var(--app-bg)' }">
+
+    <!-- ========================================================================= -->
+    <!-- 模块 1：工作台 (Workbench 首页)                                           -->
+    <!-- ========================================================================= -->
+    <div v-if="activePrimaryModule === 'workbench'" class="flex-1 flex flex-col h-full overflow-y-auto relative select-none" id="workbench-view" style="background: radial-gradient(1100px 520px at 80% 10%, rgba(186, 230, 253, 0.55) 0%, rgba(219, 234, 254, 0.28) 35%, rgba(240, 248, 255, 0.95) 70%, #edf4fc 100%);">
+      
+      <!-- 工作台主画布内衬 -->
+      <div class="p-6 lg:p-7 space-y-5 max-w-[1720px] mx-auto w-full">
+
+        <!-- =================================================================== -->
+        <!-- 顶部 Hero 区域：标题、搜索、系统设置 与 3D AI 核心平台视觉            -->
+        <!-- =================================================================== -->
+        <div class="relative flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+          
+          <!-- 左侧：标题、副标题与 4 组度量药丸卡片 -->
+          <div class="flex-1 z-10">
+            <!-- 标题与宣传语 -->
+            <div>
+              <h1 class="text-2xl lg:text-[28px] font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <span>个人工作台</span>
+              </h1>
+              <div class="flex items-center gap-2.5 mt-1.5">
+                <span class="text-sm font-semibold text-slate-700">与 AI 一起，放大你的创造力</span>
+                <span class="w-8 h-[2px] bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full inline-block"></span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">
+                多智能体协同工作，让复杂的任务变得简单。
+              </p>
+            </div>
+
+            <!-- 4 组指标统计胶囊卡片 (活跃 Agent / 待办事项 / 今日完成 / 今日进度) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 max-w-3xl">
+              <!-- 指标 1：活跃 Agent -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(59,130,246,0.12)] transition-all flex items-center justify-between group cursor-pointer"
+                   @click="showToast(`当前活跃 Codex 办公位: ${activeAgentsCount}/1`)">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-blue-50/90 border border-blue-100 flex items-center justify-center text-blue-600">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="flex items-baseline gap-1">
+                      <span class="text-xl font-extrabold text-slate-900 leading-none">{{ activeAgentsCount }}</span>
+                      <span class="text-xs font-bold text-slate-400">/ 1</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 font-medium flex items-center gap-0.5 mt-1">
+                      <span>活跃 Agent</span>
+                      <span class="text-[10px] text-slate-400 group-hover:translate-x-0.5 transition-transform">›</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 迷你柱状图 -->
+                <div class="flex items-end gap-1 h-6 pr-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <div class="w-1.5 bg-blue-400 rounded-t h-3"></div>
+                  <div class="w-1.5 bg-blue-500 rounded-t h-5"></div>
+                  <div class="w-1.5 bg-blue-400 rounded-t h-4"></div>
+                  <div class="w-1.5 bg-blue-600 rounded-t h-6"></div>
+                </div>
+              </div>
+
+              <!-- 指标 2：待办事项 -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(99,102,241,0.12)] transition-all flex items-center justify-between group cursor-pointer"
+                   @click="activePrimaryModule = 'todos'">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-indigo-50/90 border border-indigo-100 flex items-center justify-center text-indigo-500">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ pendingTasksCount }}</div>
+                    <div class="text-[11px] text-slate-500 font-medium flex items-center gap-0.5 mt-1">
+                      <span>待办事项</span>
+                      <span class="text-[10px] text-slate-400 group-hover:translate-x-0.5 transition-transform">›</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- 迷你折线波形 -->
+                <div class="pr-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <svg class="w-8 h-5 text-indigo-400" viewBox="0 0 32 20" fill="none">
+                    <path d="M2 16L9 12L16 15L23 6L30 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- 指标 3：今日完成 -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(16,185,129,0.12)] transition-all flex items-center justify-between group cursor-pointer"
+                   @click="showToast(`今日已完成 ${completedTodayCount} 项待办`)">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-emerald-50/90 border border-emerald-100 flex items-center justify-center text-emerald-500">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ completedTodayCount }}</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1">今日完成</div>
+                  </div>
+                </div>
+                <!-- 迷你绿色柱图 -->
+                <div class="flex items-end gap-1 h-6 pr-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <div class="w-1.5 bg-emerald-300 rounded-t h-2"></div>
+                  <div class="w-1.5 bg-emerald-400 rounded-t h-4"></div>
+                  <div class="w-1.5 bg-emerald-500 rounded-t h-3"></div>
+                  <div class="w-1.5 bg-emerald-600 rounded-t h-5.5"></div>
+                </div>
+              </div>
+
+              <!-- 指标 4：今日进度 -->
+              <div class="bg-white/75 backdrop-blur-md rounded-2xl p-3.5 border border-white/90 shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(14,165,233,0.12)] transition-all flex items-center justify-between group cursor-pointer"
+                   @click="showToast(`今日待办完成进度: ${todayProgressPct}%`)">
+                <div class="flex items-center gap-3">
+                  <!-- 环形圆环进度 -->
+                  <div class="relative w-10 h-10 flex items-center justify-center">
+                    <svg class="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                      <path class="text-slate-100" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      <path class="text-blue-500" :stroke-dasharray="`${todayProgressPct}, 100`" stroke-width="3.5" stroke-linecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-xl font-extrabold text-slate-900 leading-none">{{ todayProgressPct }}%</div>
+                    <div class="text-[11px] text-slate-500 font-medium mt-1">今日进度</div>
+                  </div>
+                </div>
+                <div class="text-slate-400 text-sm font-semibold pr-1 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all">›</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右侧：全局搜索、通知、主题切换 与 3D 浮空全息 AI 核心平台视觉 -->
+          <div class="flex flex-col items-end gap-3 z-10">
+            <!-- 搜索与小工具按钮 -->
+            <div class="flex items-center gap-2.5">
+              <!-- 胶囊搜索框 -->
+              <div class="relative w-64 lg:w-72">
+                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input 
+                  v-model="searchQuery" 
+                  type="text" 
+                  placeholder="搜索任务、Agent、项目..." 
+                  class="w-full h-9 pl-10 pr-4 rounded-full bg-white/80 border border-white/90 shadow-[0_2px_10px_rgba(0,0,0,0.03)] backdrop-blur text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all" />
+              </div>
+
+              <!-- 消息通知 -->
+              <button 
+                @click="showToast('已进入静音协同模式，暂无新通知')" 
+                class="w-9 h-9 rounded-full bg-white/85 border border-white/90 backdrop-blur shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-white transition-all relative cursor-pointer active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span class="w-2 h-2 rounded-full bg-rose-500 absolute top-2 right-2 ring-2 ring-white"></span>
+              </button>
+
+              <!-- 主题与设置 -->
+              <button 
+                @click.stop="showThemeMenu = !showThemeMenu" 
+                class="w-9 h-9 rounded-full bg-white/85 border border-white/90 backdrop-blur shadow-[0_2px_10px_rgba(0,0,0,0.03)] flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-white transition-all cursor-pointer active:scale-95"
+                title="选择界面主题风格">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- 3D 全息 AI 平台核心插图 (纯矢量高保真渲染，完美还原设计图右上方 AI 晶体基座) -->
+            <div class="hidden xl:flex items-center gap-3 pr-2 pointer-events-none select-none">
+              <svg class="w-72 h-36" viewBox="0 0 320 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- 底部全息环轨与渐变光晕 -->
+                <ellipse cx="160" cy="115" rx="110" ry="32" fill="url(#hero-glow)" opacity="0.6"/>
+                <ellipse cx="160" cy="115" rx="100" ry="28" stroke="#93c5fd" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.75"/>
+                <ellipse cx="160" cy="115" rx="72" ry="20" stroke="#60a5fa" stroke-width="2" opacity="0.85"/>
+                <ellipse cx="160" cy="115" rx="42" ry="12" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+
+                <!-- 悬浮全息数据卡片左侧 -->
+                <g opacity="0.85" transform="translate(45, 45) rotate(-8)">
+                  <rect width="36" height="52" rx="6" fill="white" fill-opacity="0.8" stroke="#93c5fd" stroke-width="1.2"/>
+                  <line x1="8" y1="12" x2="28" y2="12" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="8" y1="18" x2="24" y2="18" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="8" y1="24" x2="20" y2="24" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+                  <circle cx="18" cy="38" r="5" fill="#3b82f6" fill-opacity="0.2"/>
+                </g>
+
+                <!-- 悬浮全息数据卡片右侧 -->
+                <g opacity="0.85" transform="translate(235, 35) rotate(10)">
+                  <rect width="32" height="48" rx="6" fill="white" fill-opacity="0.8" stroke="#93c5fd" stroke-width="1.2"/>
+                  <line x1="6" y1="10" x2="26" y2="10" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="6" y1="16" x2="22" y2="16" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="6" y1="22" x2="18" y2="22" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/>
+                </g>
+
+                <!-- 核心 3D 等轴 AI 晶体方块 -->
+                <g transform="translate(160, 75)">
+                  <!-- 顶面 -->
+                  <polygon points="0,-24 28,-10 0,4 -28,-10" fill="url(#cube-top)" stroke="#60a5fa" stroke-width="1.5"/>
+                  <!-- 左侧面 -->
+                  <polygon points="-28,-10 0,4 0,34 -28,20" fill="url(#cube-left)" stroke="#3b82f6" stroke-width="1.5"/>
+                  <!-- 右侧面 -->
+                  <polygon points="0,4 28,-10 28,20 0,34" fill="url(#cube-right)" stroke="#2563eb" stroke-width="1.5"/>
+                  <!-- 核心发光 AI 文字 -->
+                  <text x="0" y="-8" font-family="system-ui, sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">AI</text>
+                  <circle cx="0" cy="-10" r="14" fill="#38bdf8" filter="blur(6px)" opacity="0.6"/>
+                </g>
+
+                <!-- 渐变与滤镜定义 -->
+                <defs>
+                  <radialGradient id="hero-glow" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.5"/>
+                    <stop offset="100%" stop-color="#93c5fd" stop-opacity="0"/>
+                  </radialGradient>
+                  <linearGradient id="cube-top" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#60a5fa"/>
+                    <stop offset="100%" stop-color="#2563eb"/>
+                  </linearGradient>
+                  <linearGradient id="cube-left" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1d4ed8"/>
+                    <stop offset="100%" stop-color="#1e3a8a"/>
+                  </linearGradient>
+                  <linearGradient id="cube-right" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2563eb"/>
+                    <stop offset="100%" stop-color="#1d4ed8"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <!-- 标语标签 -->
+              <div class="text-[9px] font-mono font-semibold tracking-wider text-blue-400/80 uppercase leading-tight select-none">
+                <div>HUMAN</div>
+                <div class="text-blue-500 font-bold">× AI</div>
+                <div class="text-[8px] text-slate-400 mt-0.5">FOR A BRIGHTER<br/>TOMORROW</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- 核心板块 1：我的 AI Agents (2.5D 极简机器人与办公桌开放办公区)           -->
+        <!-- =================================================================== -->
+        <section class="space-y-3">
+          <!-- 全局共享 2.5D 办公桌 SVG 滤镜与圆柱体水柱裁剪遮罩 -->
+          <svg width="0" height="0" class="absolute pointer-events-none" style="position: absolute; width: 0; height: 0;">
+            <defs>
+              <filter id="studio-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="7" />
+                <feOffset dx="0" dy="7" result="offsetblur" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.15" />
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="chair-ground-shadow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="11" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.22" />
+                </feComponentTransfer>
+              </filter>
+              <!-- 桌面 2.5D 圆柱体内部水柱裁剪区 (x=221..255, y=74..129) -->
+              <clipPath id="cylinder-water-clip">
+                <path d="M 221 74 L 255 74 L 255 123 A 17 5 0 0 1 221 123 Z" />
+              </clipPath>
+            </defs>
+          </svg>
+
+          <!-- 栏目标题 -->
+          <div class="flex items-center gap-2">
+            <span class="text-base">🚀</span>
+            <h2 class="text-sm font-bold text-slate-900 tracking-tight">Agent办公区</h2>
+          </div>
+
+          <!-- 5 位 2.5D 智能工位（无卡片包裹，仅小人、桌椅与桌面额度水柱呈现） -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 items-center justify-items-center py-1">
+            <div 
+              v-for="agent in agents" 
+              :key="agent.id"
+              :id="'ws-' + agent.id"
+              :class="['workstation', 'ws-' + agent.id, 'w-full max-w-[280px] sm:max-w-[320px] flex flex-col items-center justify-center relative select-none transition-transform duration-300 hover:scale-[1.04]']"
+              :data-state="agent.status === 'waiting_approval' ? 'confirm' : agent.status"
+              :data-quota-level="getQuotaLevel(agent.codingPlanRemainingPct)"
+              :title="agent.name + ' (' + agent.statusLabel + ') - ' + (agent.task || '空闲待命') + ' · 额度: ' + agent.codingPlanRemainingStr">
+
+              <div class="w-full relative">
+                <svg viewBox="0 0 330 295" class="w-full h-auto overflow-visible cursor-pointer"
+                     @click="agent.status === 'waiting_approval' ? approveAgentAction(agent, true) : (agent.status === 'idle' ? startNewAgentTask(agent) : null)">
+                  
+                  <!-- 1. 摄影棚地面环境阴影 -->
+                  <ellipse cx="165" cy="222" rx="120" ry="22" fill="#000" filter="url(#chair-ground-shadow)" />
+                  <ellipse cx="160" cy="266" rx="48" ry="14" fill="#000" filter="url(#chair-ground-shadow)" />
+
+                  <!-- 2. 白色办公桌 + 纯净白色双层抽屉柜 + 桌面圆柱体水柱额度器 -->
+                  <g class="desk-group">
+                    <!-- 左侧桌腿 -->
+                    <rect x="48" y="150" width="6" height="68" fill="#d1d5db" />
+                    <rect x="64" y="140" width="5" height="58" fill="#cbd5e1" />
+                    <!-- 右侧桌腿 -->
+                    <rect x="274" y="150" width="6" height="68" fill="#d1d5db" />
+
+                    <!-- 右侧桌下双层抽屉柜（纯净白色/浅灰） -->
+                    <g class="clean-white-cabinet">
+                      <polygon points="198,142 208,148 208,214 198,206" fill="#cbd5e1" />
+                      <rect x="208" y="146" width="62" height="68" rx="3" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1" />
+                      <!-- 上层白抽屉 -->
+                      <rect x="212" y="151" width="54" height="28" rx="2" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" />
+                      <rect x="231" y="156" width="16" height="2.5" rx="1.2" fill="#cbd5e1" />
+                      <!-- 下层白抽屉 -->
+                      <rect x="212" y="183" width="54" height="26" rx="2" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" />
+                      <rect x="231" y="188" width="16" height="2.5" rx="1.2" fill="#cbd5e1" />
+                    </g>
+
+                    <!-- 2.5D 梯形白色桌面 -->
+                    <polygon points="58,106 266,106 288,150 36,150" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+                    <rect x="36" y="150" width="252" height="6" rx="1" fill="#e2e8f0" />
+
+                    <!-- 桌面键盘与鼠标 (空闲时完全显露) -->
+                    <rect x="128" y="124" width="52" height="14" rx="2.5" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.8" />
+                    <line x1="133" y1="128" x2="175" y2="128" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 2" />
+                    <line x1="133" y1="133" x2="168" y2="133" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="4 2" />
+                    <rect x="188" y="126" width="9" height="12" rx="4.5" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.8" />
+
+                    <!-- ★ 桌面左侧任务长方体堆叠 (电脑左侧红色框区域 cx=74, 任务1(底) -> 任务2(中) -> 任务3(顶)，放大并与右侧额度等高对齐) ★ -->
+                    <g class="desktop-task-stack">
+                      <!-- 底部桌面柔和投影 (与右侧额度投影 cx=238, cy=125 对齐) -->
+                      <ellipse cx="74" cy="125" rx="19" ry="6" fill="#94a3b8" opacity="0.35" />
+
+                      <!-- Codex 当前任务动态堆叠：并行任务有几个就显示几个 -->
+                      <g v-for="(tItem, tIdx) in agent.agentTasks" 
+                         :key="tItem.id"
+                         :class="['task-cuboid', getTaskBlockStyle(tItem).animClass]"
+                         @click.stop="showToast(`【${agent.name} · ${tItem.num}】${tItem.title} (${tItem.statusLabel})`)">
+                        
+                        <title>{{ agent.name }} · {{ tItem.num }}: {{ tItem.title }} ({{ tItem.statusLabel }})</title>
+
+                        <!-- 长方体左侧面 (深阴影) -->
+                        <polygon :points="`58,${getTaskCy(tIdx, agent.agentTasks.length)} 74,${getTaskCy(tIdx, agent.agentTasks.length) + 5.5} 74,${getTaskCy(tIdx, agent.agentTasks.length) + 15.5} 58,${getTaskCy(tIdx, agent.agentTasks.length) + 10}`"
+                                 :fill="getTaskBlockStyle(tItem).leftFill"
+                                 :stroke="getTaskBlockStyle(tItem).stroke"
+                                 stroke-width="0.6" />
+
+                        <!-- 长方体右侧面 (中阴影) + 任务序号印字 -->
+                        <polygon :points="`74,${getTaskCy(tIdx, agent.agentTasks.length) + 5.5} 90,${getTaskCy(tIdx, agent.agentTasks.length)} 90,${getTaskCy(tIdx, agent.agentTasks.length) + 10} 74,${getTaskCy(tIdx, agent.agentTasks.length) + 15.5}`"
+                                 :fill="getTaskBlockStyle(tItem).rightFill"
+                                 :stroke="getTaskBlockStyle(tItem).stroke"
+                                 stroke-width="0.6" />
+                        <text :x="82" :y="getTaskCy(tIdx, agent.agentTasks.length) + 9.5"
+                              fill="#ffffff" font-size="6.5" font-weight="800" text-anchor="middle" opacity="0.95">{{ tIdx + 1 }}</text>
+
+                        <!-- 长方体顶面 (高亮主受光面) -->
+                        <polygon :points="`74,${getTaskCy(tIdx, agent.agentTasks.length) - 5.5} 90,${getTaskCy(tIdx, agent.agentTasks.length)} 74,${getTaskCy(tIdx, agent.agentTasks.length) + 5.5} 58,${getTaskCy(tIdx, agent.agentTasks.length)}`"
+                                 :fill="getTaskBlockStyle(tItem).topFill"
+                                 :stroke="getTaskBlockStyle(tItem).stroke"
+                                 stroke-width="0.7" />
+
+                        <!-- 顶面反光装饰线 / 流光路径 -->
+                        <polyline :points="`60,${getTaskCy(tIdx, agent.agentTasks.length)} 74,${getTaskCy(tIdx, agent.agentTasks.length) + 4.8} 88,${getTaskCy(tIdx, agent.agentTasks.length)}`"
+                                  fill="none"
+                                  :class="tItem.status === 'in_progress' ? 'task-stream-beam' : ''"
+                                  :stroke="tItem.status === 'in_progress' ? '#ffffff' : getTaskBlockStyle(tItem).stroke"
+                                  :stroke-width="tItem.status === 'in_progress' ? '1.5' : '0.7'"
+                                  :opacity="tItem.status === 'in_progress' ? '1' : '0.55'" />
+                      </g>
+
+                      <!-- 任务堆叠正前方桌面：“任务”标签 (与右侧“额度”标签 y=137 尺寸完全对齐) -->
+                      <g transform="translate(74, 137)">
+                        <rect x="-15" y="-6.5" width="30" height="12" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+                        <text x="0" y="2" text-anchor="middle" fill="#334155" font-size="7.5" font-weight="800" letter-spacing="1">任务</text>
+                      </g>
+                    </g>
+
+                    <!-- ★ 桌面右侧：2.5D 圆柱体水柱额度容器 (cx=238, 底部 y=123, 顶部 y=74) ★ -->
+                    <g class="desktop-quota-cylinder">
+                      <!-- 柔和投影 -->
+                      <ellipse cx="238" cy="125" rx="20" ry="6.5" fill="#94a3b8" opacity="0.35" />
+
+                      <!-- 玻璃圆柱体后壁底色与底部椭圆 -->
+                      <ellipse cx="238" cy="123" rx="17" ry="5" style="fill: var(--cylinder-tint); stroke: var(--cylinder-rim);" stroke-width="1" />
+                      <path d="M 221 74 L 221 123 A 17 5 0 0 0 255 123 L 255 74 Z" style="fill: var(--cylinder-tint);" />
+
+                      <!-- 圆柱体内部实心液体柱 -->
+                      <g clip-path="url(#cylinder-water-clip)">
+                        <rect class="liquid-transition"
+                              x="221" :y="getCylinderSurfaceY(agent.codingPlanRemainingPct)" width="34" :height="getCylinderBodyHeight(agent.codingPlanRemainingPct)"
+                              style="fill: var(--liquid-body);" />
+                        <ellipse class="liquid-transition" cx="238" cy="123" rx="17" ry="5"
+                                 style="fill: var(--liquid-body);" />
+                      </g>
+
+                      <!-- 2.5D 液体顶面椭圆 (随水位升降) -->
+                      <ellipse class="liquid-transition"
+                               cx="238" :cy="getCylinderSurfaceY(agent.codingPlanRemainingPct)" rx="17" ry="4.8"
+                               style="fill: var(--liquid-top);" stroke="#ffffff" stroke-width="0.7" stroke-opacity="0.65" />
+
+                      <!-- 玻璃外壁高光、刻度线与顶部椭圆杯口 -->
+                      <path d="M 221 74 L 221 123 A 17 5 0 0 0 255 123 L 255 74"
+                            fill="none" style="stroke: var(--cylinder-rim);" stroke-width="1.3" />
+                      <rect x="223.5" y="76" width="3" height="44" rx="1.5" fill="#ffffff" opacity="0.55" />
+                      <line x1="250" y1="86" x2="253" y2="86" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+                      <line x1="249" y1="98" x2="253" y2="98" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+                      <line x1="250" y1="110" x2="253" y2="110" stroke="#ffffff" stroke-width="1" opacity="0.7" />
+                      <ellipse cx="238" cy="74" rx="17" ry="5" fill="#ffffff" fill-opacity="0.35"
+                               style="stroke: var(--cylinder-rim);" stroke-width="1.3" />
+
+                      <!-- 圆柱体内部正中央：显示进度百分比 -->
+                      <rect x="223.5" y="94" width="29" height="13" rx="6.5" fill="#ffffff" fill-opacity="0.85" />
+                      <text class="font-mono" x="238" y="103" text-anchor="middle"
+                            font-size="8.5" font-weight="800" style="fill: var(--cylinder-text);">{{ agent.codingPlanRemainingPct }}%</text>
+
+                      <!-- 圆柱体正前方桌面：印有“额度”两个字 -->
+                      <g transform="translate(238, 137)">
+                        <rect x="-15" y="-6.5" width="30" height="12" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1" />
+                        <text x="0" y="2" text-anchor="middle" fill="#334155" font-size="7.5" font-weight="800" letter-spacing="1">额度</text>
+                      </g>
+                    </g>
+                  </g>
+
+                  <!-- 3. 电脑显示器 -->
+                  <g class="monitor-group">
+                    <rect x="154" y="96" width="12" height="16" fill="#cbd5e1" />
+                    <rect x="140" y="110" width="40" height="4" rx="2" fill="#94a3b8" />
+                    <rect class="monitor-bezel" x="102" y="30" width="116" height="68" rx="3" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5"
+                          style="filter: drop-shadow(0 0 12px var(--screen-frame-glow));" />
+                    <rect x="106" y="34" width="108" height="60" rx="1.5" style="fill: var(--screen-bg); transition: fill 0.4s ease;" />
+
+                    <!-- [工作中屏幕]：根据 agent.id 定制 -->
+                    <g class="screen-content-busy">
+                      <template v-if="agent.id === 'codex'">
+                        <rect x="124" y="46" width="72" height="36" rx="3" fill="#ffffff" filter="url(#studio-shadow)" />
+                        <circle cx="131" cy="52" r="1.8" fill="#ef4444" />
+                        <circle cx="136" cy="52" r="1.8" fill="#f59e0b" />
+                        <circle cx="141" cy="52" r="1.8" fill="#10b981" />
+                        <rect x="132" y="60" width="36" height="3.5" rx="1.5" fill="#64748b" />
+                        <rect x="132" y="69" width="56" height="5" rx="2.5" fill="#e2e8f0" />
+                        <rect class="codex-bar" x="132" y="69" width="40" height="5" rx="2.5" fill="#10b981" />
+                      </template>
+                      <template v-else-if="agent.id === 'claude-code'">
+                        <rect x="120" y="40" width="36" height="48" rx="2" fill="#ffffff" />
+                        <rect x="124" y="45" width="20" height="4" rx="1" fill="#ea580c" />
+                        <rect x="124" y="53" width="28" height="3" rx="1" fill="#cbd5e1" />
+                        <rect x="124" y="59" width="24" height="3" rx="1" fill="#cbd5e1" />
+                        <rect x="124" y="67" width="28" height="14" rx="1.5" fill="#ffedd5" />
+                        <rect x="162" y="40" width="38" height="48" rx="2" fill="#ffffff" />
+                        <rect x="166" y="45" width="28" height="3.5" rx="1" fill="#64748b" />
+                        <rect x="166" y="52" width="30" height="3" rx="1" fill="#cbd5e1" />
+                        <rect x="166" y="58" width="26" height="3" rx="1" fill="#cbd5e1" />
+                        <rect x="166" y="66" width="30" height="16" rx="1.5" fill="#f1f5f9" />
+                      </template>
+                      <template v-else-if="agent.id === 'browser-agent'">
+                        <circle cx="160" cy="64" r="18" fill="#0284c7" />
+                        <ellipse cx="160" cy="64" rx="18" ry="7" stroke="#93c5fd" stroke-width="1" stroke-dasharray="3 2" fill="none" />
+                        <ellipse cx="160" cy="64" rx="8" ry="18" stroke="#93c5fd" stroke-width="1" fill="none" />
+                        <ellipse cx="160" cy="64" rx="26" ry="9" stroke="#38bdf8" stroke-width="1.5" transform="rotate(-20 160 64)" fill="none" />
+                      </template>
+                      <template v-else-if="agent.id === 'data-agent'">
+                        <rect x="118" y="40" width="84" height="48" rx="2.5" fill="#ffffff" />
+                        <line x1="126" y1="46" x2="126" y2="82" stroke="#e2e8f0" stroke-width="1" />
+                        <line x1="126" y1="82" x2="196" y2="82" stroke="#e2e8f0" stroke-width="1" />
+                        <path d="M 128 52 Q 148 50, 162 58 T 194 62" fill="none" stroke="#6366f1" stroke-width="2" />
+                        <path d="M 128 64 Q 150 60, 166 68 T 194 70" fill="none" stroke="#ec4899" stroke-width="2" />
+                        <path d="M 128 74 Q 150 76, 170 73 T 194 78" fill="none" stroke="#10b981" stroke-width="2" />
+                      </template>
+                      <template v-else>
+                        <rect x="118" y="42" width="84" height="44" rx="2.5" fill="#0f172a" />
+                        <rect x="122" y="48" width="76" height="8" rx="1.5" fill="#1e293b" />
+                        <circle cx="127" cy="52" r="1.5" fill="#34d399" />
+                        <circle cx="132" cy="52" r="1.5" fill="#38bdf8" />
+                        <rect x="122" y="60" width="76" height="8" rx="1.5" fill="#1e293b" />
+                        <circle cx="127" cy="64" r="1.5" fill="#f43f5e" />
+                        <circle cx="132" cy="64" r="1.5" fill="#f59e0b" />
+                        <rect x="122" y="72" width="76" height="8" rx="1.5" fill="#1e293b" />
+                        <circle cx="127" cy="76" r="1.5" fill="#34d399" />
+                      </template>
+                    </g>
+
+                    <!-- [待确认屏幕]：橙色授权请求弹窗 -->
+                    <g class="screen-content-confirm">
+                      <rect x="122" y="44" width="76" height="40" rx="4" fill="#fffbeb" stroke="#fde68a" stroke-width="1.5" />
+                      <rect x="132" y="52" width="56" height="4" rx="2" fill="#d97706" />
+                      <rect x="138" y="60" width="44" height="3" rx="1.5" fill="#f59e0b" opacity="0.6" />
+                      <rect x="142" y="69" width="36" height="9" rx="4.5" fill="#f59e0b" />
+                      <text x="160" y="75.5" text-anchor="middle" fill="#ffffff" font-size="6" font-weight="bold">CONFIRM</text>
+                    </g>
+
+                    <!-- [空闲屏幕]：黑屏待机 -->
+                    <g class="screen-content-idle">
+                      <circle cx="208" cy="89" r="1.5" fill="#10b981" opacity="0.8" />
+                      <text x="160" y="67" text-anchor="middle" fill="#475569" font-size="8" letter-spacing="1.5" font-family="monospace">STANDBY</text>
+                    </g>
+                  </g>
+
+                  <!-- 4. 转椅内部坐垫层（空座位时显露） -->
+                  <g class="chair-movable">
+                    <ellipse cx="160" cy="198" rx="34" ry="12" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1.5" />
+                    <rect x="128" y="150" width="64" height="48" rx="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" />
+                    <line x1="138" y1="164" x2="182" y2="164" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" />
+                    <line x1="138" y1="174" x2="182" y2="174" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round" />
+                  </g>
+
+                  <!-- 5. 2.5D 机器人层 (极简金属机身 + 品牌耳机) -->
+                  <g class="robot-character">
+                    <g class="char-upper-body">
+                      <!-- 左臂 -->
+                      <g transform="translate(127, 134)">
+                        <g class="char-arm-left">
+                          <circle cx="9" cy="-10" r="5.5" style="fill: var(--robot-hand);" stroke="#1e293b" stroke-width="1" />
+                          <circle cx="9" cy="-10" r="2" fill="#94a3b8" />
+                          <path d="M 0 0 C -13 2, -11 -8, 6 -10" fill="none"
+                                style="stroke: var(--robot-body);" stroke-width="18" stroke-linecap="round" />
+                        </g>
+                      </g>
+                      <!-- 右臂 (打字臂 + 待确认举手挥舞臂) -->
+                      <g transform="translate(193, 134)">
+                        <!-- 打字状态臂 (工作中与空闲状态) -->
+                        <g class="char-arm-right-typing">
+                          <circle cx="-9" cy="-10" r="5.5" style="fill: var(--robot-hand);" stroke="#1e293b" stroke-width="1" />
+                          <circle cx="-9" cy="-10" r="2" fill="#94a3b8" />
+                          <path d="M 0 0 C 13 2, 11 -8, -6 -10" fill="none"
+                                style="stroke: var(--robot-body);" stroke-width="18" stroke-linecap="round" />
+                        </g>
+
+                        <!-- 举手挥舞臂 (待确认状态举手挥动) -->
+                        <g class="char-arm-right-waving">
+                          <!-- 大臂向右上延伸 -->
+                          <path d="M 0 0 Q 14 -12, 18 -26" fill="none"
+                                style="stroke: var(--robot-body);" stroke-width="16" stroke-linecap="round" />
+                          <!-- 肘部机械关节 -->
+                          <circle cx="18" cy="-26" r="4.5" style="fill: var(--robot-joint);" />
+                          <!-- 小臂与机械手掌（以肘关节为轴心生动挥手） -->
+                          <g transform="translate(18, -26)">
+                            <g class="forearm-waving-swing">
+                              <path d="M 0 0 Q 4 -12, 7 -22" fill="none"
+                                    style="stroke: var(--robot-body);" stroke-width="14" stroke-linecap="round" />
+                              <circle cx="8" cy="-25" r="7" style="fill: var(--robot-hand);" stroke="#1e293b" stroke-width="1" />
+                              <circle cx="8" cy="-25" r="2.5" fill="#94a3b8" />
+                              <!-- 张开的可爱机械手指夹爪 -->
+                              <path d="M 3 -29 L 3 -34 M 8 -31 L 9 -37 M 13 -29 L 15 -33"
+                                    stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" />
+                            </g>
+                          </g>
+                        </g>
+                      </g>
+                      <!-- 躯干 -->
+                      <path d="M 122 190 L 118 140 C 118 123, 134 118, 160 118 C 186 118, 202 123, 202 140 L 198 190 Z"
+                            style="fill: var(--robot-body);" />
+                      <path d="M 134 126 L 144 148 L 176 148 L 186 126" fill="none" style="stroke: var(--robot-seam);" stroke-width="1.8" stroke-linejoin="round" />
+                      <rect x="155" y="130" width="10" height="24" rx="3" style="fill: var(--robot-joint);" stroke="#475569" stroke-width="1" />
+                      <rect x="157.5" y="134" width="5" height="16" rx="2.5" style="fill: var(--hp-main);" />
+                    </g>
+
+                    <!-- 机器人后脑勺 + 品牌色耳机 -->
+                    <g class="char-head">
+                      <rect x="151" y="108" width="18" height="13" rx="3" style="fill: var(--robot-joint);" />
+                      <rect x="135" y="70" width="50" height="42" rx="16" style="fill: var(--robot-body);" stroke="#475569" stroke-width="1.5" />
+                      <path d="M 148 72.5 L 172 72.5" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" opacity="0.65" />
+                      <path d="M 132 94 C 132 58, 188 58, 188 94" fill="none" style="stroke: var(--hp-main);" stroke-width="4.5" stroke-linecap="round" />
+                      <path d="M 144 64 Q 160 59 176 64" fill="none" style="stroke: var(--hp-light);" stroke-width="2" stroke-linecap="round" />
+                      <rect x="127" y="82" width="9" height="19" rx="4.5" style="fill: var(--hp-main); stroke: var(--hp-dark);" stroke-width="1.2" />
+                      <rect x="129.5" y="86" width="3" height="11" rx="1.5" style="fill: var(--hp-light);" />
+                      <rect x="184" y="82" width="9" height="19" rx="4.5" style="fill: var(--hp-main); stroke: var(--hp-dark);" stroke-width="1.2" />
+                      <rect x="187.5" y="86" width="3" height="11" rx="1.5" style="fill: var(--hp-light);" />
+                    </g>
+
+                  </g>
+
+                  <!-- 6. 前景转椅外背壳 + 品牌标识 -->
+                  <g class="chair-movable">
+                    <rect x="157" y="220" width="6" height="26" fill="#cbd5e1" />
+                    <path d="M 160 244 L 132 260 M 160 244 L 188 260 M 160 244 L 160 266" stroke="#cbd5e1" stroke-width="4.5" stroke-linecap="round" />
+                    <circle cx="132" cy="262" r="3.5" fill="#94a3b8" />
+                    <circle cx="188" cy="262" r="3.5" fill="#94a3b8" />
+                    <circle cx="160" cy="268" r="3.5" fill="#94a3b8" />
+                    <rect x="124" y="154" width="72" height="68" rx="14" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2" filter="url(#studio-shadow)" />
+                    <path d="M 136 156 L 184 156" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+
+                    <!-- 椅背品牌印字 -->
+                    <g transform="translate(160, 187)">
+                      <rect x="-29" y="-12" width="58" height="22" rx="6" 
+                            :style="{ fill: getChairStyle(agent.id).bg, stroke: getChairStyle(agent.id).stroke }" stroke-width="1" />
+                      <text x="0" y="3" text-anchor="middle" 
+                            :style="{ fill: getChairStyle(agent.id).text, fontFamily: getChairStyle(agent.id).font }"
+                            font-size="10.5" font-weight="800" letter-spacing="0.4">
+                        {{ getChairStyle(agent.id).label }}
+                      </text>
+                    </g>
+                  </g>
+
+                  <!-- 7. 电脑上方：待确认跳动气泡（叹号 + “待确认”） -->
+                  <g transform="translate(160, 16)">
+                    <g class="confirm-bubble" @click.stop="approveAgentAction(agent, true)" title="待确认，点击立即批准">
+                      <!-- 下方指向电脑的小三角 -->
+                      <polygon points="-4,10 0,14 4,10" fill="#f59e0b" />
+                      <!-- 主体圆角胶囊 -->
+                      <rect x="-36" y="-10" width="72" height="20" rx="10" fill="#f59e0b" stroke="#ffffff" stroke-width="1.2"
+                            style="filter: drop-shadow(0 3px 8px rgba(245, 158, 11, 0.45));" />
+                      <!-- 叹号圆圈图标 -->
+                      <circle cx="-23" cy="0" r="6" fill="#ffffff" />
+                      <text x="-23" y="3.5" text-anchor="middle" fill="#d97706" font-size="9.5" font-weight="900" font-family="-apple-system, BlinkMacSystemFont, sans-serif">!</text>
+                      <!-- 文字：待确认 -->
+                      <text x="8" y="3.5" text-anchor="middle" fill="#ffffff" font-size="9.5" font-weight="800" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif" letter-spacing="1">待确认</text>
+                    </g>
+                  </g>
+                </svg>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================================== -->
+        <!-- 核心板块 2：待办区（今日待办看板）                                    -->
+        <!-- =================================================================== -->
+        <section class="space-y-3 pb-8">
+          <!-- 待办区头部与“查看全部待办”功能 -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-base">📋</span>
+              <h2 class="text-sm font-bold text-slate-900 tracking-tight">今日待办</h2>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                共 {{ workbenchTodayTasks.length }} 项
+              </span>
+            </div>
+
+            <!-- 查看全部待办功能入口，点击进入待办模块 -->
+            <button 
+              @click="activePrimaryModule = 'todos'" 
+              class="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer group py-1 px-2.5 rounded-lg hover:bg-blue-50/70 border border-transparent hover:border-blue-200/60"
+              title="进入待办中心查看全部待办">
+              <span>查看全部待办</span>
+              <span class="text-sm group-hover:translate-x-0.5 transition-transform">→</span>
+            </button>
+          </div>
+
+          <!-- 看板模式多列 (自适应列数，支持水平滑动与名称编辑) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-start"
+               :style="kanbanColumns.length > 4 ? { display: 'flex', overflowX: 'auto', paddingBottom: '8px' } : {}">
+            <div 
+              v-for="col in kanbanColumns" 
+              :key="'wb-' + col.id"
+              class="flex flex-col bg-slate-100/70 rounded-xl border border-slate-200/80 p-2.5 transition-all duration-200"
+              :class="[
+                { 'drop-highlight': dragOverColId === col.id },
+                kanbanColumns.length > 4 ? 'min-w-[270px] w-[280px] flex-shrink-0' : ''
+              ]"
+              @dragover.prevent="dragOverColId = col.id"
+              @dragleave="onDragLeaveCol(col.id)"
+              @drop="onDropKanbanCol(col.id)"
+            >
+              <!-- 列头 -->
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/70 px-1">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="col.dotColor"></span>
+                  <span 
+                    class="text-xs font-bold text-slate-700 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                    @dblclick="promptRenameColumn(col)"
+                    :title="'双击重命名看板列: ' + col.title">
+                    {{ col.title }}
+                  </span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.2 bg-white text-slate-500 rounded-full border border-slate-200 flex-shrink-0">
+                    {{ getWorkbenchTodayColumnTasks(col.id).length }}
+                  </span>
+                </div>
+                
+                <div class="flex items-center gap-0.5">
+                  <button 
+                    @click="promptRenameColumn(col)" 
+                    class="w-5 h-5 rounded hover:bg-white text-slate-400 hover:text-blue-600 flex items-center justify-center text-[10px] transition-colors cursor-pointer"
+                    title="修改该状态名称">
+                    ✏️
+                  </button>
+                  <button 
+                    @click="openCreateDrawerWithStatus(col.id)" 
+                    class="w-5 h-5 rounded hover:bg-white text-slate-400 hover:text-blue-600 flex items-center justify-center text-xs transition-colors cursor-pointer font-bold"
+                    title="在此状态下快速新建待办">
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <!-- 卡片列表 (仅显示 编号，优先级，复制小图标，标题，文件夹最后一级悬浮显示完整路径) -->
+              <div class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                <div 
+                  v-for="task in getWorkbenchTodayColumnTasks(col.id)" 
+                  :key="task.id"
+                  draggable="true"
+                  @dragstart="onTaskDragStart($event, task)"
+                  @dragend="onTaskDragEnd"
+                  @click="openDetailDrawer(task)"
+                  class="kanban-card group bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-blue-400 rounded-lg p-2.5 shadow-card hover:shadow-card-hover cursor-grab active:cursor-grabbing transition-all duration-150 relative">
+
+                  <!-- 顶部：编号、优先级与一键复制提示词小图标 -->
+                  <div class="flex items-center justify-between gap-1 mb-1.5">
+                    <!-- 编号 -->
+                    <span class="text-[10px] font-mono font-semibold text-blue-600 bg-blue-50 border border-blue-200/60 px-1 py-0.5 rounded">
+                      {{ task.code }}
+                    </span>
+
+                    <div class="flex items-center gap-1">
+                      <!-- 优先级 -->
+                      <span 
+                        :class="getPriorityBadgeClass(task.priority)" 
+                        class="text-[9px] px-1.5 py-0.2 rounded font-semibold font-mono">
+                        {{ task.priority }}
+                      </span>
+
+                      <!-- 一键复制提示词小图标 -->
+                      <button 
+                        @click.stop="copyTaskForAgent(task)"
+                        class="p-1 rounded hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-all cursor-pointer"
+                        title="一键复制提示词">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 卡片标题 -->
+                  <h3 class="text-xs font-semibold text-slate-800 line-clamp-2 mb-1.5 group-hover:text-blue-600 transition-colors leading-snug">
+                    {{ task.title }}
+                  </h3>
+
+                  <!-- 文件夹最后一级，悬浮显示完整路径 -->
+                  <div 
+                    v-if="task.projectPath" 
+                    class="flex items-center gap-1 text-[10px] text-slate-500 font-mono truncate bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/80 cursor-help" 
+                    :title="task.projectPath">
+                    <span class="text-slate-400 flex-shrink-0">📂</span>
+                    <span class="truncate">{{ getLastFolderName(task.projectPath) }}</span>
+                  </div>
+
+                </div>
+
+                <!-- 空状态占位 -->
+                <div v-if="getWorkbenchTodayColumnTasks(col.id).length === 0" class="py-6 text-center text-slate-300 text-[11px] font-mono border border-dashed border-slate-200 rounded-lg">
+                  今日暂无任务
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 模块 2：待办调度模式 (Todos 看板 / 列表 / 大日历)                          -->
+    <!-- ========================================================================= -->
+    <div v-else-if="activePrimaryModule === 'todos'" class="flex-1 flex flex-col h-full overflow-hidden">
+
+      <!-- 顶部综合控制栏 -->
+      <header class="h-14 border-b border-slate-200 px-5 flex items-center justify-between bg-white/90 backdrop-blur z-10 flex-shrink-0">
+        <!-- 标题与过滤描述 -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="min-w-0">
+            <h1 class="text-base font-bold text-slate-800 flex items-center gap-2 whitespace-nowrap">
+              <span>{{ currentViewTitle }}</span>
+              <span class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 border border-brand-200">
+                {{ filteredTasks.length }} 项待办
+              </span>
+            </h1>
+            <p class="text-[11px] text-slate-500 flex items-center gap-1 truncate">
+              <span v-if="activeCategoryObj" class="text-slate-700 font-medium">分类: {{ activeCategoryObj.name }} · </span>
+              <span v-if="selectedTag" class="text-brand-600 font-medium">标签: #{{ selectedTag }} · </span>
+              <span>拖拽卡片流转状态 · 点击一键复制提示词给 Agent</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- 搜索、3 种视图切换 Tab 及新建按钮 -->
+        <div class="flex items-center gap-3">
+          <!-- 搜索输入框 -->
+          <div class="relative w-56">
+            <input 
+              v-model="searchQuery" 
+              type="text" 
+              placeholder="搜索待办/项目路径/编号..." 
+              class="h-8 pl-8 pr-3 w-full bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none"
+            />
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer">✕</button>
+          </div>
+
+          <!-- 3 种视图切换 Tab (1 看板 / 2 列表 / 3 大日历) -->
+          <div class="bg-slate-200/80 p-0.5 rounded-lg flex items-center gap-0.5">
+            <!-- 1. 看板模式 (默认) -->
+            <button 
+              @click="currentViewMode = 'kanban'"
+              :class="currentViewMode === 'kanban' ? 'bg-white text-brand-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'"
+              class="px-2.5 py-1 text-xs rounded-md flex items-center gap-1.5 transition-all cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+              </svg>
+              <span>看板</span>
+            </button>
+
+            <!-- 2. 列表模式 -->
+            <button 
+              @click="currentViewMode = 'list'"
+              :class="currentViewMode === 'list' ? 'bg-white text-brand-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'"
+              class="px-2.5 py-1 text-xs rounded-md flex items-center gap-1.5 transition-all cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              <span>列表</span>
+            </button>
+
+            <!-- 3. 大日历模式 -->
+            <button 
+              @click="currentViewMode = 'calendar'"
+              :class="currentViewMode === 'calendar' ? 'bg-white text-brand-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'"
+              class="px-2.5 py-1 text-xs rounded-md flex items-center gap-1.5 transition-all cursor-pointer">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>大日历</span>
+            </button>
+          </div>
+
+          <!-- 看板列管理设置按钮 -->
+          <button 
+            v-if="currentViewMode === 'kanban'"
+            @click="openColumnManagerModal" 
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-xs font-semibold border border-slate-200 transition-all cursor-pointer"
+            title="配置与编辑看板状态列">
+            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>配置看板列 ({{ kanbanColumns.length }})</span>
+          </button>
+
+        <!-- 快速新建按钮 (活力橙高质感) -->
+        <button 
+          @click="openCreateDrawer" 
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>新建待办</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 视图内容区域 -->
+    <div class="flex-1 overflow-auto p-4">
+
+      <!-- ================================================================= -->
+      <!-- 视图 1：看板模式 (Kanban View) - 支持增删改列与水平滑动                -->
+      <!-- ================================================================= -->
+      <div v-if="currentViewMode === 'kanban'" class="flex gap-3.5 h-full overflow-x-auto pb-2 min-w-full items-start">
+        <div 
+          v-for="col in kanbanColumns" 
+          :key="col.id"
+          class="flex flex-col bg-slate-200/50 rounded-xl border border-slate-200 p-2.5 h-full max-h-full transition-all duration-200 min-w-[280px] w-[300px] flex-shrink-0"
+          :class="{ 'drop-highlight': dragOverColId === col.id }"
+          @dragover.prevent="dragOverColId = col.id"
+          @dragleave="onDragLeaveCol(col.id)"
+          @drop="onDropKanbanCol(col.id)"
+        >
+          <!-- 列头 (支持双击改名、编辑按钮、删除自定义列) -->
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80 px-1">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="col.dotColor"></span>
+              <span 
+                class="text-xs font-bold text-slate-700 truncate cursor-pointer hover:text-brand-600 transition-colors"
+                @dblclick="promptRenameColumn(col)"
+                :title="'双击快速重命名看板列: ' + col.title">
+                {{ col.title }}
+              </span>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 bg-white text-slate-500 rounded-full border border-slate-200 flex-shrink-0">
+                {{ getColumnTasks(col.id).length }}
+              </span>
+            </div>
+            
+            <div class="flex items-center gap-0.5">
+              <!-- 重命名编辑图标 -->
+              <button 
+                @click="promptRenameColumn(col)" 
+                class="w-5 h-5 rounded hover:bg-white text-slate-400 hover:text-brand-500 flex items-center justify-center text-[10px] transition-colors cursor-pointer"
+                title="修改该看板列名称">
+                ✏️
+              </button>
+
+              <!-- 删除列图标 (核心必选状态不可删除) -->
+              <button 
+                v-if="!col.required && col.id !== 'todo' && col.id !== 'in_progress' && col.id !== 'done'"
+                @click="removeKanbanColumn(col)" 
+                class="w-5 h-5 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-500 flex items-center justify-center text-[10px] transition-colors cursor-pointer"
+                title="删除此看板列">
+                🗑️
+              </button>
+
+              <!-- + 新建待办 -->
+              <button 
+                @click="openCreateDrawerWithStatus(col.id)" 
+                class="w-5 h-5 rounded hover:bg-white text-slate-400 hover:text-brand-500 flex items-center justify-center text-xs transition-colors cursor-pointer font-bold"
+                title="在此状态下快速新建待办">
+                +
+              </button>
+            </div>
+          </div>
+
+          <!-- 卡片列表 -->
+          <div class="flex-1 overflow-y-auto space-y-2 pr-1">
+            <div 
+              v-for="task in getColumnTasks(col.id)" 
+              :key="task.id"
+              draggable="true"
+              @dragstart="onTaskDragStart($event, task)"
+              @dragend="onTaskDragEnd"
+              @click="openDetailDrawer(task)"
+              class="kanban-card group bg-white hover:bg-slate-50/90 border border-slate-200/90 hover:border-brand-400 rounded-lg p-2.5 shadow-card hover:shadow-card-hover cursor-grab active:cursor-grabbing transition-all duration-150 relative">
+
+              <!-- 顶部：编号、优先级与一键复制提示词小图标 -->
+              <div class="flex items-center justify-between gap-1 mb-1.5">
+                <!-- 编号 -->
+                <span class="text-[10px] font-mono font-semibold text-brand-600 bg-brand-50 border border-brand-200/60 px-1 py-0.5 rounded">
+                  {{ task.code }}
+                </span>
+
+                <div class="flex items-center gap-1">
+                  <!-- 优先级 -->
+                  <span 
+                    :class="getPriorityBadgeClass(task.priority)" 
+                    class="text-[9px] px-1.5 py-0.2 rounded font-semibold font-mono">
+                    {{ task.priority }}
+                  </span>
+
+                  <!-- 一键复制提示词小图标 -->
+                  <button 
+                    @click.stop="copyTaskForAgent(task)"
+                    class="p-1 rounded hover:bg-brand-50 text-slate-400 hover:text-brand-600 transition-all cursor-pointer"
+                    title="一键复制提示词">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 卡片标题 -->
+              <h3 class="text-xs font-semibold text-slate-800 line-clamp-2 mb-1.5 group-hover:text-brand-600 transition-colors leading-snug">
+                {{ task.title }}
+              </h3>
+
+              <!-- 文件夹最后一级 (悬浮显示完整路径) -->
+              <div 
+                v-if="task.projectPath" 
+                class="flex items-center gap-1 text-[10px] text-slate-500 font-mono truncate bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/80 cursor-help" 
+                :title="task.projectPath">
+                <span class="text-slate-400 flex-shrink-0">📂</span>
+                <span class="truncate">{{ getLastFolderName(task.projectPath) }}</span>
+              </div>
+
+            </div>
+
+            <!-- 空列展示 -->
+            <div v-if="getColumnTasks(col.id).length === 0" class="h-28 border border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 text-xs gap-1">
+              <span>暂无待办</span>
+              <button @click="openCreateDrawerWithStatus(col.id)" class="text-brand-500 hover:underline text-[11px] cursor-pointer">+ 新建</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- + 添加更多状态看板列快捷卡片 -->
+        <div 
+          @click="openColumnManagerModal"
+          class="min-w-[240px] w-[260px] flex-shrink-0 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 hover:border-brand-400/80 rounded-xl p-6 text-center group cursor-pointer transition-all bg-slate-50/50 hover:bg-white h-48 my-auto">
+          <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-brand-50 flex items-center justify-center text-slate-400 group-hover:text-brand-600 transition-colors mb-2 text-lg font-bold">
+            +
+          </div>
+          <div class="text-xs font-semibold text-slate-700 group-hover:text-brand-600 transition-colors">添加状态看板列</div>
+          <div class="text-[10px] text-slate-400 mt-1">支持自定义名称与颜色</div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- 视图 2：列表模式 (List View)                                      -->
+      <!-- ================================================================= -->
+      <div v-else-if="currentViewMode === 'list'" class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-card">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-mono border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 pl-4 w-28">状态</th>
+                <th class="w-24">编号</th>
+                <th>标题与工程路径</th>
+                <th class="w-20">优先级</th>
+                <th class="w-24">分类</th>
+                <th class="w-32">标签</th>
+                <th class="w-24">计划日期</th>
+                <th class="w-24 text-right pr-4">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 text-xs">
+              <tr 
+                v-for="task in filteredTasks" 
+                :key="task.id"
+                @click="openDetailDrawer(task)"
+                class="hover:bg-slate-50/80 cursor-pointer transition-colors group">
+                <!-- 状态下拉 -->
+                <td class="pl-4 py-2.5" @click.stop>
+                  <select 
+                    v-model="task.status" 
+                    @change="saveData"
+                    class="bg-white border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded cursor-pointer focus:outline-none focus:border-brand-500">
+                    <option v-for="col in kanbanColumns" :key="col.id" :value="col.id">{{ col.title }}</option>
+                  </select>
+                </td>
+
+                <td class="font-mono text-brand-600 font-semibold">{{ task.code }}</td>
+
+                <td>
+                  <div class="font-medium text-slate-800 group-hover:text-brand-600 transition-colors">{{ task.title }}</div>
+                  <div v-if="task.projectPath" class="text-[10px] text-slate-400 font-mono truncate max-w-md">
+                    📂 {{ task.projectPath }}
+                  </div>
+                </td>
+
+                <td>
+                  <span :class="getPriorityBadgeClass(task.priority)" class="text-[9px] px-1.5 py-0.5 rounded font-mono font-semibold">
+                    {{ task.priority }}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
+                    {{ getCategoryName(task.categoryId) }}
+                  </span>
+                </td>
+
+                <td>
+                  <div class="flex items-center gap-1 flex-wrap">
+                    <span v-for="tag in task.tags.slice(0, 2)" :key="tag" class="text-[9px] bg-slate-100 px-1 py-0.5 rounded text-slate-500">
+                      #{{ tag }}
+                    </span>
+                  </div>
+                </td>
+
+                <td class="font-mono text-slate-500 text-[11px]">{{ formatDisplayDate(task.dueDate) }}</td>
+
+                <td class="text-right pr-4" @click.stop>
+                  <div class="flex items-center justify-end gap-1">
+                    <button 
+                      @click="copyTaskForAgent(task)" 
+                      class="px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 rounded transition-colors cursor-pointer"
+                      title="一键复制给 Agent 描述">
+                      🤖 提示词
+                    </button>
+                    <button 
+                      @click="quickCopyTask(task)" 
+                      class="px-1.5 py-1 text-xs text-slate-400 hover:text-slate-800 rounded transition-colors cursor-pointer"
+                      title="快速复制">
+                      📋
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr v-if="filteredTasks.length === 0">
+                <td colspan="8" class="text-center py-10 text-slate-400">
+                  没有匹配的待办事项
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- 视图 3：大日历模式 (Big Calendar View) - 浅色月历                   -->
+      <!-- ================================================================= -->
+      <div v-else-if="currentViewMode === 'calendar'" class="flex flex-col h-full bg-white rounded-xl border border-slate-200 overflow-hidden shadow-card">
+        
+        <!-- 日历顶部切换控制器 -->
+        <div class="px-5 py-3 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>📅</span>
+              <span class="font-mono">{{ calendarYear }} 年 {{ calendarMonth + 1 }} 月</span>
+            </h2>
+            <span class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 border border-brand-200">
+              本月待办 {{ currentMonthTaskCount }} 项
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button 
+              @click="goToTodayCalendar" 
+              class="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded-md bg-white hover:bg-slate-50 transition-colors cursor-pointer">
+              回到今天
+            </button>
+            <div class="border border-slate-200 rounded-md overflow-hidden bg-white flex items-center">
+              <button 
+                @click="prevMonth" 
+                class="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="上个月">
+                ◀
+              </button>
+              <button 
+                @click="nextMonth" 
+                class="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 border-l border-slate-200 transition-colors cursor-pointer"
+                title="下个月">
+                ▶
+              </button>
+            </div>
+            <button 
+              @click="openCreateDrawerWithDate(todayStr)" 
+              class="px-2.5 py-1 rounded-md bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium shadow-sm transition-all cursor-pointer">
+              + 规划待办
+            </button>
+          </div>
+        </div>
+
+        <!-- 星期表头 (7 列) -->
+        <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-100/70 text-center py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 select-none flex-shrink-0">
+          <div v-for="(dayName, idx) in weekDays" :key="dayName" :class="idx >= 5 ? 'text-brand-600' : ''">
+            {{ dayName }}
+          </div>
+        </div>
+
+        <!-- 日历 7x6 单元格网格 -->
+        <div class="flex-1 grid grid-cols-7 grid-rows-6 gap-[1px] bg-slate-200 overflow-y-auto">
+          <div 
+            v-for="cell in calendarGrid" 
+            :key="cell.date"
+            @dragover.prevent="dragOverDate = cell.date"
+            @dragleave="onDragLeaveDate(cell.date)"
+            @drop="onCalendarDrop(cell.date)"
+            :class="[
+              cell.isCurrentMonth ? 'bg-white' : 'bg-slate-50 text-slate-400',
+              cell.isToday ? 'bg-orange-50/40 ring-1 ring-inset ring-brand-400' : '',
+              dragOverDate === cell.date ? 'bg-orange-100/80 ring-2 ring-brand-500' : ''
+            ]"
+            class="p-1.5 flex flex-col min-h-[90px] relative group transition-all duration-150 overflow-hidden"
+          >
+            <!-- 单元格顶部栏 -->
+            <div class="flex items-center justify-between mb-1 select-none flex-shrink-0">
+              <div class="flex items-center gap-1">
+                <span 
+                  :class="cell.isToday ? 'bg-brand-500 text-white font-bold px-1.5 py-0.5 rounded-full text-[10px]' : (cell.isCurrentMonth ? 'text-slate-700 font-semibold' : 'text-slate-400')"
+                  class="text-xs font-mono">
+                  {{ cell.dayNumber }}
+                </span>
+                <span v-if="cell.isToday" class="text-[9px] text-brand-600 font-semibold tracking-tight">今日</span>
+              </div>
+
+              <!-- 悬浮快速新建 -->
+              <button 
+                @click.stop="openCreateDrawerWithDate(cell.date)"
+                class="opacity-0 group-hover:opacity-100 w-4 h-4 rounded hover:bg-slate-100 text-slate-400 hover:text-brand-600 flex items-center justify-center text-[10px] transition-opacity cursor-pointer"
+                title="在此日期排期待办">
+                +
+              </button>
+            </div>
+
+            <!-- 当天任务列表胶囊 -->
+            <div class="flex-1 overflow-y-auto space-y-1 pr-0.5">
+              <div 
+                v-for="task in cell.tasks" 
+                :key="task.id"
+                draggable="true"
+                @dragstart="onTaskDragStart($event, task)"
+                @dragend="onTaskDragEnd"
+                @click="openDetailDrawer(task)"
+                :class="getCalendarPillClass(task)"
+                class="px-1.5 py-1 rounded text-[10px] cursor-pointer hover:shadow-xs transition-all truncate border flex items-center justify-between gap-1"
+                :title="`[${task.code}] ${task.title} - ${task.priority}`"
+              >
+                <div class="flex items-center gap-1 truncate">
+                  <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" :class="getPriorityDot(task.priority)"></span>
+                  <span class="font-mono text-[9px] text-brand-700 flex-shrink-0 font-medium">{{ task.code.replace('#AI-2026-', '#') }}</span>
+                  <span class="truncate font-medium text-slate-800">{{ task.title }}</span>
+                </div>
+                <button 
+                  @click.stop="quickCopyTask(task)"
+                  class="opacity-0 hover:opacity-100 flex-shrink-0 text-slate-400 hover:text-slate-800 cursor-pointer"
+                  title="快速复制">
+                  📋
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 底部状态栏 -->
+    <footer class="h-7 border-t border-slate-200 px-4 bg-white flex items-center justify-between text-[11px] text-slate-500 font-mono select-none flex-shrink-0">
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span>Vue 3 Composition API · 本地高响应持久化</span>
+        </span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span>拖拽卡片流转状态或日期排期</span>
+        <span>•</span>
+        <span>点击卡片查看与编辑详情</span>
+      </div>
+    </footer>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 模块 3+：其他扩展模块预留占位 (Terminal / Docs / Metrics)                   -->
+    <!-- ========================================================================= -->
+    <div v-else class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+      <div class="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-3xl mb-4">
+        🚧
+      </div>
+      <h3 class="text-sm font-bold text-slate-800 mb-1">模块正在调度中</h3>
+      <p class="text-xs text-slate-500 mb-5 max-w-sm leading-relaxed">
+        该入口为后续 Agent 协同终端、本地知识库与效能度量预留扩展槽。您可随时返回工作台或待办中心。
+      </p>
+      <div class="flex items-center gap-3">
+        <button 
+          @click="activePrimaryModule = 'workbench'" 
+          class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer">
+          返回工作台首页
+        </button>
+        <button 
+          @click="activePrimaryModule = 'todos'" 
+          class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer">
+          前往待办中心
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 侧边抽屉 (Detail & Edit Drawer)                                            -->
+  <!-- ========================================================================= -->
+  <div 
+    v-if="isDrawerOpen" 
+    class="fixed inset-0 z-50 flex justify-end transition-opacity duration-300">
+    
+    <!-- 柔和遮罩背景 -->
+    <div 
+      @click="closeDrawer" 
+      class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity cursor-pointer"></div>
+
+    <!-- 划出抽屉内容 (620px 宽) -->
+    <div 
+      class="relative w-full max-w-xl bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full transform transition-transform duration-300 z-10 ease-out">
+      
+      <!-- 头部 Header -->
+      <div class="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono font-bold text-brand-600 px-2 py-0.5 rounded bg-brand-50 border border-brand-200">
+            {{ activeForm.code || '#AI-TASK' }}
+          </span>
+          <span class="text-xs text-slate-600 font-medium">
+            {{ isEditingNew ? '新建 AI 调度待办' : '待办详情 & Agent 任务上下文' }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- 一键复制给 Agent 描述 (橙色主操作) -->
+          <button 
+            @click="copyTaskForAgent(activeForm)" 
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white text-xs font-medium shadow-sm transition-all active:scale-95 cursor-pointer"
+            title="生成结构化 Markdown 提示词直接喂给 AI Agent">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            <span>一键复制给 Agent 描述</span>
+          </button>
+
+          <!-- 关闭抽屉按钮 -->
+          <button @click="closeDrawer" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer">✕</button>
+        </div>
+      </div>
+
+      <!-- 抽屉表单主体 -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-4">
+
+        <!-- 1. 待办标题 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">待办标题</label>
+          <input 
+            v-model.trim="activeForm.title" 
+            type="text" 
+            placeholder="例如：重构用户鉴权服务支持 JWT 双令牌机制..." 
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 text-slate-900 focus:border-brand-500 focus:bg-white rounded-lg text-sm font-medium focus:outline-none"
+          />
+        </div>
+
+        <!-- 2. 四列属性快捷设置：状态、优先级、日期、分类 -->
+        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+          
+          <!-- 状态 -->
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1 font-medium">状态流转</label>
+            <select v-model="activeForm.status" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
+              <option value="todo">待处理 (To Do)</option>
+              <option value="in_progress">进行中 (In Progress)</option>
+              <option value="review">待验收 (Review)</option>
+              <option value="done">已完成 (Done)</option>
+            </select>
+          </div>
+
+          <!-- 优先级 -->
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1 font-medium">优先级</label>
+            <select v-model="activeForm.priority" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
+              <option value="P0">P0 - 紧急 (立即介入)</option>
+              <option value="P1">P1 - 高 (本周期关键)</option>
+              <option value="P2">P2 - 中 (常规排期)</option>
+              <option value="P3">P3 - 低 (灵感与备份)</option>
+            </select>
+          </div>
+
+          <!-- 计划排期 / 日期 -->
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1 font-medium">计划日期 (排期)</label>
+            <div class="flex items-center gap-1">
+              <input 
+                v-model="activeForm.dueDate" 
+                type="date" 
+                class="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-800 focus:outline-none focus:border-brand-500"
+              />
+              <button @click="setFormDateQuick('today')" type="button" class="px-2 py-1 text-[10px] text-brand-600 hover:bg-brand-50 rounded border border-brand-200 cursor-pointer">今</button>
+              <button @click="setFormDateQuick('tomorrow')" type="button" class="px-2 py-1 text-[10px] text-brand-600 hover:bg-brand-50 rounded border border-brand-200 cursor-pointer">明</button>
+            </div>
+          </div>
+
+          <!-- 所属分类 -->
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-1 font-medium">所属分类</label>
+            <select v-model="activeForm.categoryId" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
+              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 3. 项目路径 (Project Path) -->
+        <div class="p-3 bg-orange-50/40 rounded-lg border border-orange-200">
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+              <span>📂 项目路径 (Project Path)</span>
+              <span class="text-[10px] font-normal text-brand-600 font-mono">由 AI Agent 提供</span>
+            </label>
+            <button 
+              @click="activeForm.projectPath = 'd:/Workspace/personal/AgentDashboard'" 
+              class="text-[10px] text-brand-600 hover:underline cursor-pointer">
+              填入当前仓库
+            </button>
+          </div>
+          <input 
+            v-model.trim="activeForm.projectPath" 
+            type="text" 
+            placeholder="例如: d:/workspace/projects/payment-service 或 /app/backend" 
+            class="w-full px-2.5 py-1.5 font-mono bg-white border border-slate-300 text-slate-800 text-xs focus:border-brand-500 rounded focus:outline-none"
+          />
+          <p class="text-[10px] text-slate-500 mt-1">此路径由 AI Agent 在生成任务时自动附带，一键复制时会嵌入提示词供 Agent 调取工具定位。</p>
+        </div>
+
+        <!-- 4. 标签集合管理 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">标签集合</label>
+          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+            <span 
+              v-for="t in activeForm.tags" 
+              :key="t" 
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-medium">
+              #{{ t }}
+              <span @click="removeFormTag(t)" class="cursor-pointer hover:text-rose-600 text-[10px] ml-0.5">✕</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input 
+              v-model.trim="newTagInput" 
+              @keyup.enter="addFormTag"
+              placeholder="添加标签后按 Enter..." 
+              class="px-2.5 py-1 bg-slate-50 border border-slate-300 text-xs w-48 text-slate-800 focus:bg-white focus:border-brand-500 rounded focus:outline-none"
+            />
+            <div class="flex items-center gap-1 overflow-x-auto text-[10px]">
+              <span class="text-slate-400 text-[10px]">常用:</span>
+              <button 
+                v-for="s in ['frontend', 'backend', 'ai-agent', 'refactor', 'test']" 
+                :key="s" 
+                @click="quickAddFormTag(s)"
+                class="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-brand-600 cursor-pointer">
+                +{{ s }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Markdown 任务描述 (编辑与实时预览) -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-slate-700 flex items-center gap-1">
+              <span>Markdown 描述与执行要求</span>
+            </label>
+            <div class="bg-slate-100 p-0.5 rounded flex items-center gap-0.5 border border-slate-200">
+              <button 
+                @click="descMode = 'edit'" 
+                :class="descMode === 'edit' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600'"
+                class="px-2 py-0.5 text-[10px] rounded transition-all cursor-pointer">编辑</button>
+              <button 
+                @click="descMode = 'preview'" 
+                :class="descMode === 'preview' ? 'bg-brand-500 text-white font-semibold' : 'text-slate-600'"
+                class="px-2 py-0.5 text-[10px] rounded transition-all cursor-pointer">实时预览</button>
+            </div>
+          </div>
+
+          <!-- 编辑区 -->
+          <div v-show="descMode === 'edit'">
+            <textarea 
+              v-model="activeForm.description" 
+              rows="7" 
+              placeholder="在此输入详细任务背景、验收标准及技术要求，支持 Markdown 列表、代码块..."
+              class="w-full p-2.5 font-mono text-xs bg-slate-50 border border-slate-300 text-slate-800 leading-relaxed focus:border-brand-500 focus:bg-white rounded-lg focus:outline-none"></textarea>
+          </div>
+
+          <!-- 实时预览区 -->
+          <div 
+            v-show="descMode === 'preview'" 
+            class="p-3 bg-slate-50 rounded-lg border border-slate-200 min-h-[160px] max-h-[220px] overflow-y-auto markdown-body"
+            v-html="renderedDescription">
+          </div>
+        </div>
+
+        <!-- 6. 复制给 Agent 的 Prompt 模版预览 -->
+        <div class="rounded-lg bg-orange-50/50 p-3 border border-orange-200">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] font-semibold text-brand-700 flex items-center gap-1">
+              <span>⚡ 生成的 Agent Prompt 预览</span>
+            </span>
+            <button @click="copyTaskForAgent(activeForm)" class="text-[10px] text-brand-600 hover:underline font-medium cursor-pointer">
+              复制文本
+            </button>
+          </div>
+          <pre class="text-[10px] font-mono text-slate-600 bg-white p-2.5 rounded border border-orange-100 whitespace-pre-wrap select-all max-h-24 overflow-y-auto">{{ getAgentPromptText(activeForm) }}</pre>
+        </div>
+
+      </div>
+
+      <!-- 抽屉底部 Footer -->
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
+        <div>
+          <button 
+            v-if="!isEditingNew" 
+            @click="deleteCurrentTask" 
+            class="px-2.5 py-1 border border-rose-300 text-rose-600 hover:bg-rose-50 rounded text-xs transition-colors cursor-pointer">
+            删除此待办
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button @click="closeDrawer" class="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 cursor-pointer">取消</button>
+          <button 
+            @click="saveTask" 
+            class="px-4 py-1.5 rounded-md bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm transition-all cursor-pointer">
+            保存待办
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 全局轻量 Toast 提示 -->
+  <div v-if="toastMessage" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transition-all">
+    <div class="bg-brand-500 text-white shadow-xl text-xs py-2 px-4 rounded-lg border border-brand-400 flex items-center gap-2 font-medium">
+      <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+      <span>{{ toastMessage }}</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Vue 3 核心应用逻辑 -->
+<script>
+  if (!window.Vue) {
+    alert('本地未找到 Vue 3 运行时，请确认同目录下存在 vue.global.prod.js 文件！');
+  }
+
+  const { createApp, ref, computed, onMounted } = Vue;
+
+  function getFormattedDate(offsetDays = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().split('T')[0];
+  }
+
+  const DEFAULT_TASKS = [
+    {
+      id: 'task-1',
+      code: '#2610-0001',
+      title: '接入 OAuth 2.0 PKCE 流程并支持双 Token 无感刷新',
+      description: `### 核心目标\n解决当前用户长时间未操作时的掉线问题，引入双 Token (Access & Refresh) 校验流程。\n\n#### 详细步骤\n- [ ] 在网关层拦截 401 响应\n- [ ] 增加互斥刷新锁，防止并发重放\n- [ ] 完善单元测试用例\n\n\`\`\`typescript\n// 示例拦截伪代码\naxios.interceptors.response.use(res => res, async err => {\n  if (err.response?.status === 401) return refreshTokenAndRetry(err.config);\n});\n\`\`\``,
+      status: 'in_progress',
+      priority: 'P0',
+      dueDate: getFormattedDate(0),
+      dueTime: '09:30',
+      projectPath: 'd:/workspace/projects/cloud-auth-service',
+      categoryId: 'work',
+      tags: ['backend', 'auth', 'security']
+    },
+    {
+      id: 'task-2',
+      code: '#2610-0002',
+      title: '优化看板拖拽渲染性能与虚拟滚动降级策略',
+      description: `### 背景\n当待办数量较多时，原生 HTML5 Drag & Drop 搭配 Vue 3 响应式更新可保持 60fps 丝滑体验。\n\n> 重点优化 dragover 事件的节流处理。`,
+      status: 'todo',
+      priority: 'P1',
+      dueDate: getFormattedDate(0),
+      dueTime: '11:00',
+      projectPath: 'd:/Workspace/personal/AgentDashboard',
+      categoryId: 'work',
+      tags: ['frontend', 'performance', 'vue3']
+    },
+    {
+      id: 'task-3',
+      code: '#2610-0003',
+      title: '整理技术博客：Agentic AI 与自动化协作架构实践',
+      description: `总结最近使用 Antigravity Agent 打造个人开发流水线的思考与方法论。包含任务结构化上下文注入与提示词设计。`,
+      status: 'todo',
+      priority: 'P2',
+      dueDate: getFormattedDate(1),
+      dueTime: '15:30',
+      projectPath: 'd:/workspace/personal/tech-blog',
+      categoryId: 'personal',
+      tags: ['blog', 'writing', 'ai-agent']
+    },
+    {
+      id: 'task-4',
+      code: '#2610-0004',
+      title: '修复文件上传接口超大包截断导致的 EPIPE 异常',
+      description: `根据 Sentry 监控日志，超过 50MB 的多媒体视频包会在代理网关超时释放。\n需调整 \`client_max_body_size\` 及 Node.js Stream 管道缓冲区。`,
+      status: 'review',
+      priority: 'P0',
+      dueDate: getFormattedDate(0),
+      dueTime: '16:00',
+      projectPath: 'd:/workspace/projects/asset-storage-hub',
+      categoryId: 'work',
+      tags: ['backend', 'bugfix']
+    },
+    {
+      id: 'task-5',
+      code: '#2610-0005',
+      title: '跑步打卡 5 公里并进行每周体能恢复训练',
+      description: `保持健康作息，每周定期有氧运动。`,
+      status: 'done',
+      priority: 'P3',
+      dueDate: getFormattedDate(0),
+      dueTime: '18:30',
+      projectPath: 'd:/workspace/personal/fitness-tracker',
+      categoryId: 'personal',
+      tags: ['health', 'life']
+    },
+    {
+      id: 'task-6',
+      code: '#2610-0006',
+      title: '设计微前端架构子应用动态沙箱隔离方案',
+      description: `调研 Shadow DOM 与 JS Proxy 在极复杂三方插件注入场景下的内存开销与隔离有效性。`,
+      status: 'todo',
+      priority: 'P1',
+      dueDate: getFormattedDate(3),
+      dueTime: '10:00',
+      projectPath: 'd:/workspace/projects/core-portal',
+      categoryId: 'work',
+      tags: ['architecture', 'micro-frontend']
+    },
+    {
+      id: 'task-7',
+      code: '#2610-0007',
+      title: '阅读论文：LLM 基于反思的自主规划与工具调用边界',
+      description: `重点关注 ReAct 与 Reflexion 模式在长周期跨文件重构任务中的表现。`,
+      status: 'todo',
+      priority: 'P2',
+      dueDate: '2026-11-20',
+      dueTime: '20:00',
+      projectPath: 'd:/workspace/research/llm-papers',
+      categoryId: 'personal',
+      tags: ['research', 'ai-agent']
+    },
+    {
+      id: 'task-8',
+      code: '#2610-0008',
+      title: '构建基于 AST 的 TypeScript 依赖图谱与模块解耦引擎',
+      description: `### 核心目标\n为 Codex 与 Claude Code 提供精准的项目上下文切片，避免长上下文污染与冗余 Token 消耗。\n\n- [x] 解析 tsconfig 路径映射\n- [ ] 导出模块有向无环依赖图 (DAG)\n- [ ] 计算模块不稳定度与调用环`,
+      status: 'in_progress',
+      priority: 'P1',
+      dueDate: getFormattedDate(0),
+      dueTime: '14:20',
+      projectPath: 'd:/workspace/projects/ast-dep-analyzer',
+      categoryId: 'work',
+      tags: ['ast', 'typescript', 'ai-agent']
+    },
+    // ===== 工作台专属任务 (严格对照参考设计图) =====
+    {
+      id: 'task-ref-1',
+      code: '#2610-0009',
+      title: '设计新版官网的首页视觉稿',
+      description: `### 视觉设计目标\n参考前沿 Cyber-Glassmorphism 玻璃态科技风格，完成多端响应式视觉稿。\n\n- [ ] 3D 浮动核心组件\n- [ ] 柔和科技冷光渐变\n- [ ] 交互动效规范标注`,
+      status: 'todo',
+      priority: 'P0',
+      categoryBadge: '设计',
+      priorityBadge: '高优先级',
+      priorityBadgeClass: 'bg-rose-50 text-rose-500 border border-rose-100',
+      dueDate: getFormattedDate(0),
+      dueTime: '09:00',
+      projectPath: 'd:/workspace/landing-page-v2',
+      categoryId: 'work',
+      tags: ['design', 'ui-ux']
+    },
+    {
+      id: 'task-ref-2',
+      code: '#2610-0010',
+      title: '整理 Q3 产品数据并生成分析报告',
+      description: `汇总留存漏斗与核心用户转化路径，输出可视化日报。`,
+      status: 'todo',
+      priority: 'P1',
+      categoryBadge: '数据分析',
+      priorityBadge: '中优先级',
+      priorityBadgeClass: 'bg-indigo-50 text-indigo-600 border border-indigo-100',
+      dueDate: getFormattedDate(0),
+      dueTime: '10:30',
+      projectPath: 'd:/workspace/q3-metrics-report',
+      categoryId: 'work',
+      tags: ['data', 'analytics']
+    },
+    {
+      id: 'task-ref-3',
+      code: '#2610-0011',
+      title: '调研 AI 编程工具的市场动态',
+      description: `对比当前主流开发 Agent (Codex, Claude Code, Browser Agent, Data Agent, Ops Agent) 的技术演进路径。`,
+      status: 'todo',
+      priority: 'P1',
+      categoryBadge: '研究',
+      priorityBadge: '中优先级',
+      priorityBadgeClass: 'bg-cyan-50 text-cyan-600 border border-cyan-100',
+      dueDate: getFormattedDate(0),
+      dueTime: '14:00',
+      projectPath: 'd:/workspace/ai-tools-research',
+      categoryId: 'personal',
+      tags: ['research', 'ai-agent']
+    },
+    {
+      id: 'task-ref-4',
+      code: '#2610-0012',
+      title: '优化用户反馈界面的交互细节',
+      description: `优化表单交互错误提示与实时骨架屏加载状态。`,
+      status: 'todo',
+      priority: 'P2',
+      categoryBadge: '产品',
+      priorityBadge: '低优先级',
+      priorityBadgeClass: 'bg-slate-100 text-slate-500 border border-slate-200',
+      dueDate: getFormattedDate(1),
+      dueTime: '09:00',
+      projectPath: 'd:/workspace/feedback-module',
+      categoryId: 'work',
+      tags: ['product', 'interaction']
+    },
+    {
+      id: 'task-ref-5',
+      code: '#2610-0013',
+      title: '准备下周的产品评审材料',
+      description: `梳理评审需求文档与系统架构图。`,
+      status: 'todo',
+      priority: 'P2',
+      categoryBadge: '文档',
+      priorityBadge: '低优先级',
+      priorityBadgeClass: 'bg-amber-50 text-amber-600 border border-amber-100',
+      dueDate: getFormattedDate(1),
+      dueTime: '14:00',
+      projectPath: 'd:/workspace/prd-docs-2026',
+      categoryId: 'work',
+      tags: ['docs', 'planning']
+    },
+    {
+      id: 'task-ref-6',
+      code: '#2610-0014',
+      title: '实现用户认证模块',
+      description: `### 核心目标\n接入 OAuth 2.0 PKCE 流程并支持双 Token 无感刷新机制。\n\n\`\`\`typescript\nexport const authMiddleware = async (req, res, next) => { ... }\n\`\`\``,
+      status: 'in_progress',
+      priority: 'P0',
+      agentName: 'Codex · 代码开发',
+      progress: 68,
+      remainingTime: '剩余约 32 分钟',
+      iconType: 'code',
+      dueDate: getFormattedDate(0),
+      dueTime: '11:00',
+      projectPath: 'd:/workspace/cloud-auth-service',
+      categoryId: 'work',
+      tags: ['backend', 'auth']
+    },
+    {
+      id: 'task-ref-7',
+      code: '#2610-0015',
+      title: '分析竞品网站并生成报告',
+      description: `### 目标\nBrowser Agent 自动化爬取竞品网站的功能特性列表与定价矩阵。`,
+      status: 'in_progress',
+      priority: 'P1',
+      agentName: 'Browser Agent · 信息收集',
+      progress: 40,
+      remainingTime: '剩余约 10 分钟',
+      iconType: 'globe',
+      dueDate: getFormattedDate(0),
+      dueTime: '15:00',
+      projectPath: 'd:/workspace/competitor-spider',
+      categoryId: 'work',
+      tags: ['browser', 'spider']
+    },
+    {
+      id: 'task-ref-8',
+      code: '#2610-0016',
+      title: '部署测试环境',
+      description: `自动化执行 Docker 镜像构建并推送到 Kubernetes 测试集群。`,
+      status: 'in_progress',
+      priority: 'P1',
+      agentName: 'Ops Agent · 运维执行',
+      progress: 85,
+      remainingTime: '剩余约 1 小时 12 分钟',
+      iconType: 'ops',
+      dueDate: getFormattedDate(0),
+      dueTime: '17:30',
+      projectPath: 'd:/workspace/infra-k8s',
+      categoryId: 'work',
+      tags: ['ops', 'k8s', 'docker']
+    }
+  ];
+
+  const DEFAULT_CATEGORIES = [
+    { id: 'work', name: '工作 (Work)', color: '#f97316', custom: false },
+    { id: 'personal', name: '个人 (Personal)', color: '#10b981', custom: false }
+  ];
+
+  const app = createApp({
+    setup() {
+      // 默认首页为工作台 (workbench)
+      const activePrimaryModule = ref('workbench');
+      const currentViewMode = ref('kanban'); // kanban / list / calendar
+
+      // 保留 Demo 原始数据结构；页面初始化时只展示一个 Codex 办公位，随后由本地状态覆盖。
+      const agents = ref([
+        {
+          id: 'codex',
+          name: 'Codex',
+          role: '代码开发 · 工程实现',
+          avatarLetter: 'C',
+          avatarBg: 'bg-[#0f172a] text-white',
+          status: 'busy', // 'idle' | 'busy' | 'waiting_approval'
+          statusLabel: '忙碌',
+          statusBadgeClass: 'text-rose-500 bg-rose-50 border border-rose-100',
+          dotColor: 'bg-rose-500 animate-pulse',
+          task: '实现用户认证模块',
+          timeEst: '32 分钟',
+          progress: 68,
+          codingPlanName: 'Coding plan 周额度',
+          codingPlanRemainingPct: 70, // 剩余 70%
+          codingPlanRemainingStr: '350,000 / 500,000 Tokens',
+          codingPlanResetCycle: '周一重置',
+          quotaUsed: 150000,
+          quotaTotal: 500000,
+          quotaRemaining: '350,000 Tokens',
+          quotaPct: 70.0,
+          isLoadingQuota: false,
+          agentTasks: [
+            { id: 'cdx-t1', num: '任务1', title: '编写 API 单元测试与用例验证', status: 'done', statusLabel: '最近完成' },
+            { id: 'cdx-t2', num: '任务2', title: '实现 OAuth2 用户鉴权与令牌刷新', status: 'in_progress', statusLabel: '进行中' },
+            { id: 'cdx-t3', num: '任务3', title: '重构网关请求拦截器与异常链', status: 'in_progress', statusLabel: '进行中' }
+          ]
+        },
+        {
+          id: 'claude-code',
+          name: 'Claude Code',
+          role: '代码分析 · 架构设计',
+          avatarLetter: '✳',
+          avatarBg: 'bg-[#18181b] text-amber-500',
+          status: 'idle',
+          statusLabel: '空闲',
+          statusBadgeClass: 'text-emerald-600 bg-emerald-50 border border-emerald-100',
+          dotColor: 'bg-emerald-500',
+          task: '暂无任务',
+          timeEst: '',
+          progress: 0,
+          codingPlanName: 'Coding plan 周额度',
+          codingPlanRemainingPct: 85, // 剩余 85%
+          codingPlanRemainingStr: '425,000 / 500,000 Tokens',
+          codingPlanResetCycle: '周一重置',
+          quotaUsed: 75000,
+          quotaTotal: 500000,
+          quotaRemaining: '425,000 Tokens',
+          quotaPct: 85.0,
+          isLoadingQuota: false,
+          agentTasks: [
+            { id: 'cld-t1', num: '任务1', title: '微服务依赖拓扑与调用链分析', status: 'done', statusLabel: '最近完成' },
+            { id: 'cld-t2', num: '任务2', title: '多租户系统架构演进方案评审', status: 'done', statusLabel: '最近完成' },
+            { id: 'cld-t3', num: '任务3', title: '技术债清理与重构设计归档', status: 'done', statusLabel: '最近完成' }
+          ]
+        },
+        {
+          id: 'browser-agent',
+          name: 'Browser Agent',
+          role: '网页交互 · 信息收集',
+          avatarLetter: '🌐',
+          avatarBg: 'bg-[#0f172a] text-cyan-400',
+          status: 'waiting_approval',
+          statusLabel: '待确认',
+          statusBadgeClass: 'text-blue-600 bg-blue-50 border border-blue-100',
+          dotColor: 'bg-blue-500 animate-ping',
+          task: '分析竞品网站并生成报告',
+          timeEst: '10 分钟',
+          progress: 40,
+          pendingAction: '授权抓取竞品控制台 API 数据',
+          codingPlanName: 'Coding plan 周额度',
+          codingPlanRemainingPct: 60, // 剩余 60%
+          codingPlanRemainingStr: '600 / 1,000 次调用',
+          codingPlanResetCycle: '周一重置',
+          quotaUsed: 400,
+          quotaTotal: 1000,
+          quotaRemaining: '600 次调用',
+          quotaPct: 60.0,
+          isLoadingQuota: false,
+          agentTasks: [
+            { id: 'brw-t1', num: '任务1', title: '检索竞品官方文档清单与变更', status: 'done', statusLabel: '最近完成' },
+            { id: 'brw-t2', num: '任务2', title: '页面 DOM 快照与渲染数据采集', status: 'in_progress', statusLabel: '进行中' },
+            { id: 'brw-t3', num: '任务3', title: '授权抓取竞品控制台 API 数据', status: 'waiting_approval', statusLabel: '待确认' }
+          ]
+        },
+        {
+          id: 'data-agent',
+          name: 'Data Agent',
+          role: '数据分析 · 可视化',
+          avatarLetter: '🗄',
+          avatarBg: 'bg-[#0f172a] text-sky-400',
+          status: 'idle',
+          statusLabel: '空闲',
+          statusBadgeClass: 'text-emerald-600 bg-emerald-50 border border-emerald-100',
+          dotColor: 'bg-emerald-500',
+          task: '暂无任务',
+          timeEst: '',
+          progress: 0,
+          codingPlanName: 'Coding plan 周额度',
+          codingPlanRemainingPct: 90, // 剩余 90%
+          codingPlanRemainingStr: '450 / 500 次调用',
+          codingPlanResetCycle: '周一重置',
+          quotaUsed: 50,
+          quotaTotal: 500,
+          quotaRemaining: '450 次调用',
+          quotaPct: 90.0,
+          isLoadingQuota: false,
+          agentTasks: [
+            { id: 'dat-t1', num: '任务1', title: '清洗 Q3 用户行为全量埋点日志', status: 'done', statusLabel: '最近完成' },
+            { id: 'dat-t2', num: '任务2', title: '生成用户漏斗转化分析看板', status: 'done', statusLabel: '最近完成' },
+            { id: 'dat-t3', num: '任务3', title: '导出高价值付费客户留存报表', status: 'done', statusLabel: '最近完成' }
+          ]
+        },
+        {
+          id: 'ops-agent',
+          name: 'Ops Agent',
+          role: '运维执行 · 系统管理',
+          avatarLetter: '⚙',
+          avatarBg: 'bg-[#0f172a] text-slate-300',
+          status: 'busy',
+          statusLabel: '忙碌',
+          statusBadgeClass: 'text-rose-500 bg-rose-50 border border-rose-100',
+          dotColor: 'bg-rose-500 animate-pulse',
+          task: '部署测试环境',
+          timeEst: '1 小时 12 分钟',
+          progress: 85,
+          codingPlanName: 'Coding plan 周额度',
+          codingPlanRemainingPct: 75, // 剩余 75%
+          codingPlanRemainingStr: '37.5 / 50.0 工时',
+          codingPlanResetCycle: '周一重置',
+          quotaUsed: 12.5,
+          quotaTotal: 50.0,
+          quotaRemaining: '37.5 工时',
+          quotaPct: 75.0,
+          isLoadingQuota: false,
+          agentTasks: [
+            { id: 'ops-t1', num: '任务1', title: '构建生产环境多架构容器镜像', status: 'done', statusLabel: '最近完成' },
+            { id: 'ops-t2', num: '任务2', title: '自动化部署预发测试集群环境', status: 'in_progress', statusLabel: '进行中' },
+            { id: 'ops-t3', num: '任务3', title: '配置 Prometheus 核心告警策略', status: 'in_progress', statusLabel: '进行中' }
+          ]
+        }
+      ]);
+      agents.value = [agents.value[0]];
+      agents.value[0].agentTasks = [];
+      agents.value[0].task = '正在读取 Codex 状态';
+      agents.value[0].role = '本地 Codex · 状态同步中';
+
+      // 3 套主题设计规范
+      const themes = [
+        {
+          id: 'mono',
+          name: '极简黑白 (Mono)',
+          tag: '默认 · Vercel / Notion',
+          desc: '单色黑白灰阶，极克制点缀，耐看专注',
+          primaryColor: '#18181b',
+          primaryDot: '#18181b',
+          surfaceDot: '#f4f4f5',
+          textDot: '#71717a',
+          logoGradient: 'linear-gradient(135deg, #3f3f46, #18181b, #09090b)',
+          logoShadow: '0 0 16px -2px rgba(24, 24, 27, 0.45)',
+        },
+        {
+          id: 'indigo',
+          name: '深邃冷靛蓝 (Electric Indigo)',
+          tag: 'Linear 风格 · 科技推荐',
+          desc: '冷调科技深邃靛蓝，降低视觉疲劳',
+          primaryColor: '#4f46e5',
+          primaryDot: '#4f46e5',
+          surfaceDot: '#eef2ff',
+          textDot: '#3730a3',
+          logoGradient: 'linear-gradient(135deg, #6366f1, #4f46e5, #4338ca)',
+          logoShadow: '0 0 16px -2px rgba(79, 70, 229, 0.45)',
+        },
+        {
+          id: 'terracotta',
+          name: '焦糖陶土 (Terracotta)',
+          tag: '复古高智感 · 去塑料味',
+          desc: '低饱和暖棕陶土，温润质感与深度',
+          primaryColor: '#c2410c',
+          primaryDot: '#c2410c',
+          surfaceDot: '#ffedd5',
+          textDot: '#9a3412',
+          logoGradient: 'linear-gradient(135deg, #ea580c, #c2410c, #9a3412)',
+          logoShadow: '0 0 16px -2px rgba(194, 65, 12, 0.45)',
+        }
+      ];
+
+      const currentTheme = ref('mono');
+      const showThemeMenu = ref(false);
+      const isHoveringTheme = ref(false);
+
+      const currentThemeConfig = computed(() => {
+        return themes.find(t => t.id === currentTheme.value) || themes[0];
+      });
+
+      function setTheme(themeId) {
+        currentTheme.value = themeId;
+        try {
+          localStorage.setItem('agentflow_theme', themeId);
+        } catch (e) {}
+        document.documentElement.setAttribute('data-theme', themeId);
+        showThemeMenu.value = false;
+        isHoveringTheme.value = false;
+        showToast(`已应用「${currentThemeConfig.value.name}」主题`);
+      }
+
+      const activeTimeFilter = ref('inbox');
+      const activeCategory = ref(null);
+      const selectedTag = ref(null);
+      const selectedPriority = ref(null);
+      const searchQuery = ref('');
+
+      const tasks = ref([]);
+      const categories = ref([]);
+
+      const showAddCategoryInput = ref(false);
+      const newCategoryName = ref('');
+
+      // 默认关闭抽屉
+      const isDrawerOpen = ref(false);
+      const isEditingNew = ref(false);
+      const descMode = ref('preview');
+      const newTagInput = ref('');
+      const activeForm = ref({
+        id: '',
+        code: '',
+        title: '',
+        description: '',
+        status: 'todo',
+        priority: 'P1',
+        dueDate: getFormattedDate(0),
+        projectPath: '',
+        categoryId: 'work',
+        tags: []
+      });
+
+      const draggingTaskId = ref(null);
+      const dragOverColId = ref(null);
+
+      const todayDateObj = new Date();
+      const todayStr = getFormattedDate(0);
+      const calendarYear = ref(todayDateObj.getFullYear());
+      const calendarMonth = ref(todayDateObj.getMonth());
+      const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      const dragOverDate = ref(null);
+
+      const toastMessage = ref('');
+      let toastTimer = null;
+
+      function showToast(msg) {
+        toastMessage.value = msg;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastMessage.value = '';
+        }, 2600);
+      }
+
+      function generateTaskCode() {
+        const d = new Date();
+        const yy = String(d.getFullYear()).slice(-2);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const prefix = `#${yy}${mm}-`;
+        let maxSeq = 0;
+        (tasks.value || []).forEach(t => {
+          if (t.code && t.code.startsWith(prefix)) {
+            const num = parseInt(t.code.slice(prefix.length), 10);
+            if (!isNaN(num) && num > maxSeq) {
+              maxSeq = num;
+            }
+          }
+        });
+        return `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
+      }
+
+      function fromApiTask(task) {
+        return {
+          ...task,
+          code: task.code && String(task.code).startsWith('#') ? task.code : `#${task.code}`
+        };
+      }
+
+      function toApiTask(task) {
+        return {
+          ...task,
+          code: task.code && /^#?\d{1,4}$/.test(String(task.code)) ? String(task.code).replace(/^#/, '') : undefined,
+          expectedVersion: task.version
+        };
+      }
+
+      async function loadInitialData() {
+        try {
+          const response = await fetch('/api/state', { cache: 'no-store' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const state = await response.json();
+          tasks.value = (state.tasks || []).map(fromApiTask);
+          categories.value = state.categories || DEFAULT_CATEGORIES;
+          if (Array.isArray(state.statuses) && state.statuses.length >= 3) {
+            kanbanColumns.value = state.statuses;
+          }
+        } catch (e) {
+          tasks.value = [];
+          categories.value = DEFAULT_CATEGORIES;
+          showToast(`待办数据库连接失败: ${e.message || e}`);
+        }
+      }
+
+      let saveTimer = null;
+      function saveData() {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(async () => {
+          try {
+            const response = await fetch('/api/state', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tasks: tasks.value.map(toApiTask),
+                categories: categories.value,
+                statuses: kanbanColumns.value
+              })
+            });
+            if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
+            const state = await response.json();
+            tasks.value = (state.tasks || []).map(fromApiTask);
+            categories.value = state.categories || categories.value;
+            kanbanColumns.value = state.statuses || kanbanColumns.value;
+          } catch (e) {
+            console.error('SQLite sync error', e);
+            showToast(`保存失败: ${e.message || e}`);
+          }
+        }, 120);
+      }
+
+      const timeFilters = [
+        { id: 'inbox', label: '收集箱', icon: '📥' },
+        { id: 'today', label: '今天', icon: '☀️' },
+        { id: 'tomorrow', label: '明天', icon: '🌤️' },
+        { id: 'someday', label: '某天', icon: '🗓️' },
+        { id: 'future', label: '未来', icon: '🚀' },
+      ];
+
+      // 默认核心看板 4 列 (待处理、进行中、已完成 为必选核心状态不可删除)
+      const DEFAULT_KANBAN_COLUMNS = [
+        { id: 'todo', title: '待处理', dotColor: 'bg-slate-400', isSystem: true, required: true },
+        { id: 'in_progress', title: '进行中', dotColor: 'bg-blue-500', isSystem: true, required: true },
+        { id: 'review', title: '待验收', dotColor: 'bg-amber-400', isSystem: false, required: false },
+        { id: 'done', title: '已完成', dotColor: 'bg-emerald-500', isSystem: true, required: true }
+      ];
+
+      // 看板列由 SQLite 加载；首次渲染先使用默认四列
+      function loadSavedKanbanColumns() {
+        return JSON.parse(JSON.stringify(DEFAULT_KANBAN_COLUMNS));
+      }
+
+      const kanbanColumns = ref(loadSavedKanbanColumns());
+
+      function saveKanbanColumns() {
+        saveData();
+      }
+
+      // 看板列管理弹窗状态
+      const isColumnManagerOpen = ref(false);
+      const newColumnTitle = ref('');
+      const newColumnColor = ref('bg-indigo-500');
+
+      // 可选圆点颜色列表
+      const availableDotColors = [
+        { label: '灰色', value: 'bg-slate-400' },
+        { label: '湖蓝色', value: 'bg-blue-500' },
+        { label: '天青色', value: 'bg-sky-500' },
+        { label: '靛蓝色', value: 'bg-indigo-500' },
+        { label: '琥珀黄', value: 'bg-amber-400' },
+        { label: '活力橙', value: 'bg-orange-500' },
+        { label: '翡翠绿', value: 'bg-emerald-500' },
+        { label: '玫瑰红', value: 'bg-rose-500' },
+        { label: '星际紫', value: 'bg-purple-500' },
+        { label: '松青色', value: 'bg-teal-500' }
+      ];
+
+      // 打开/关闭列管理弹窗
+      function openColumnManagerModal() {
+        newColumnTitle.value = '';
+        newColumnColor.value = 'bg-indigo-500';
+        isColumnManagerOpen.value = true;
+      }
+      function closeColumnManagerModal() {
+        isColumnManagerOpen.value = false;
+        saveKanbanColumns();
+      }
+
+      // 添加新状态看板列
+      function addKanbanColumn(customTitle, customColor) {
+        const title = (customTitle || newColumnTitle.value || '').trim();
+        if (!title) {
+          showToast('⚠️ 请输入看板状态列名称');
+          return;
+        }
+        if (kanbanColumns.value.some(c => c.title === title)) {
+          showToast('⚠️ 已存在相同名称的状态看板列');
+          return;
+        }
+        const newId = 'status_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
+        const col = {
+          id: newId,
+          title: title,
+          dotColor: customColor || newColumnColor.value || 'bg-indigo-500',
+          isSystem: false,
+          required: false
+        };
+        // 默认插入在“已完成”前面，保持“已完成”作为流转终点放在最后一列
+        const doneIndex = kanbanColumns.value.findIndex(c => c.id === 'done');
+        if (doneIndex !== -1) {
+          kanbanColumns.value.splice(doneIndex, 0, col);
+        } else {
+          kanbanColumns.value.push(col);
+        }
+        saveKanbanColumns();
+        newColumnTitle.value = '';
+        showToast(`✅ 已新增「${title}」看板状态列`);
+      }
+
+      // 重命名状态看板列
+      function updateColumnTitle(col, newTitle) {
+        const trimmed = (newTitle || '').trim();
+        if (!trimmed) {
+          showToast('⚠️ 看板列名称不能为空');
+          return;
+        }
+        col.title = trimmed;
+        saveKanbanColumns();
+        showToast(`已重命名看板列为「${trimmed}」`);
+      }
+
+      // 双击或点击快捷重命名
+      function promptRenameColumn(col) {
+        const current = col.title;
+        const val = prompt(`请输入「${current}」看板列的新名称：`, current);
+        if (val !== null && val.trim() !== '') {
+          updateColumnTitle(col, val.trim());
+        }
+      }
+
+      // 删除看板状态列 (必选核心状态不可删除)
+      function removeKanbanColumn(col) {
+        if (col.required || col.id === 'todo' || col.id === 'in_progress' || col.id === 'done') {
+          showToast('❌「待处理」、「进行中」、「已完成」为系统核心必选看板，不可删除');
+          return;
+        }
+        const affectedTasks = tasks.value.filter(t => t.status === col.id);
+        if (affectedTasks.length > 0) {
+          if (!confirm(`该看板列下共有 ${affectedTasks.length} 个待办任务。\n删除后这些任务将自动转移至「待处理」，是否确认删除？`)) {
+            return;
+          }
+          affectedTasks.forEach(t => t.status = 'todo');
+          saveData();
+        }
+        kanbanColumns.value = kanbanColumns.value.filter(c => c.id !== col.id);
+        saveKanbanColumns();
+        showToast(`🗑️ 已删除「${col.title}」看板状态列`);
+      }
+
+      // 恢复默认四列
+      function resetDefaultKanbanColumns() {
+        if (!confirm('确定要恢复为默认的四列看板（待处理、进行中、待验收、已完成）吗？')) return;
+        kanbanColumns.value = JSON.parse(JSON.stringify(DEFAULT_KANBAN_COLUMNS));
+        saveKanbanColumns();
+        showToast('已重置为默认四列看板状态');
+      }
+
+      const priorityOptions = [
+        { value: 'P0', label: 'P0 紧急', badgeBg: 'bg-rose-500' },
+        { value: 'P1', label: 'P1 高', badgeBg: 'bg-amber-500' },
+        { value: 'P2', label: 'P2 中', badgeBg: 'bg-brand-500' },
+        { value: 'P3', label: 'P3 低', badgeBg: 'bg-slate-400' },
+      ];
+
+      // 标签折叠与展开状态 (默认折叠展示前 5 个)
+      const isTagsExpanded = ref(false);
+
+      const allTags = computed(() => {
+        const set = new Set();
+        tasks.value.forEach(t => (t.tags || []).forEach(tag => set.add(tag)));
+        return Array.from(set);
+      });
+
+      const displayedTags = computed(() => {
+        if (isTagsExpanded.value) return allTags.value;
+        return allTags.value.slice(0, 5);
+      });
+
+      const activeCategoryObj = computed(() => {
+        if (!activeCategory.value) return null;
+        return categories.value.find(c => c.id === activeCategory.value) || null;
+      });
+
+      const totalTaskCount = computed(() => tasks.value.length);
+
+      function matchesTimeFilter(task, filterId) {
+        const t0 = getFormattedDate(0);
+        const t1 = getFormattedDate(1);
+        const d = task.dueDate;
+
+        if (filterId === 'inbox') return true;
+        if (filterId === 'today') return d === t0;
+        if (filterId === 'tomorrow') return d === t1;
+        if (filterId === 'future') return d > t1;
+        if (filterId === 'someday') return !d || d > getFormattedDate(7);
+        return true;
+      }
+
+      function getFilterCount(fid) {
+        return tasks.value.filter(t => matchesTimeFilter(t, fid)).length;
+      }
+
+      function getCategoryCount(cid) {
+        return tasks.value.filter(t => t.categoryId === cid).length;
+      }
+
+      function getTagCount(tag) {
+        return tasks.value.filter(t => (t.tags || []).includes(tag)).length;
+      }
+
+      function getPriorityCount(p) {
+        return tasks.value.filter(t => t.priority === p).length;
+      }
+
+      const filteredTasks = computed(() => {
+        return tasks.value.filter(task => {
+          if (!matchesTimeFilter(task, activeTimeFilter.value)) return false;
+          if (activeCategory.value && task.categoryId !== activeCategory.value) return false;
+          if (selectedTag.value && !(task.tags || []).includes(selectedTag.value)) return false;
+          if (selectedPriority.value && task.priority !== selectedPriority.value) return false;
+
+          if (searchQuery.value) {
+            const q = searchQuery.value.toLowerCase();
+            const mTitle = (task.title || '').toLowerCase().includes(q);
+            const mCode = (task.code || '').toLowerCase().includes(q);
+            const mPath = (task.projectPath || '').toLowerCase().includes(q);
+            const mDesc = (task.description || '').toLowerCase().includes(q);
+            if (!mTitle && !mCode && !mPath && !mDesc) return false;
+          }
+          return true;
+        });
+      });
+
+      const currentViewTitle = computed(() => {
+        const tf = timeFilters.find(f => f.id === activeTimeFilter.value);
+        return tf ? tf.label : '待办中心';
+      });
+
+      function getColumnTasks(statusCol) {
+        return filteredTasks.value.filter(t => t.status === statusCol);
+      }
+
+      const renderedDescription = computed(() => {
+        if (!activeForm.value.description) {
+          return '<p class="text-slate-400 italic">暂无详细 Markdown 描述...</p>';
+        }
+        if (window.marked && window.marked.parse) {
+          return window.marked.parse(activeForm.value.description);
+        }
+        return activeForm.value.description;
+      });
+
+      function quickCopyTask(task) {
+        const text = `【待办】${task.code} ${task.title}\n优先级: ${task.priority} | 状态: ${task.status}\n项目路径: ${task.projectPath || '未指定'}\n排期: ${task.dueDate}\n\n描述:\n${task.description || '无'}`;
+        copyText(text, `已复制待办 [${task.code}] 详情到剪贴板！`);
+      }
+
+      function getAgentPromptText(task) {
+        return `### [AI Agent Task Execution Request]
+- **Task ID**: ${task.code || '#AI-TASK'}
+- **Title**: ${task.title || 'Untitled Task'}
+- **Project Path**: \`${task.projectPath || 'd:/Workspace/personal/AgentDashboard'}\`
+- **Priority**: ${task.priority || 'P1'} | **Status**: ${task.status || 'todo'}
+- **Category**: ${getCategoryName(task.categoryId)}
+- **Tags**: ${(task.tags || []).map(t => '#' + t).join(' ') || '#task'}
+- **Due Date**: ${task.dueDate || 'Unscheduled'}
+
+#### Detailed Requirements & Markdown Context:
+${task.description || 'No detailed instructions provided.'}
+
+#### Agent Execution Instruction:
+Please navigate to the Project Path specified above, analyze the current workspace, and perform the necessary implementation steps according to the task requirements. Report results when done.`;
+      }
+
+      function copyTaskForAgent(task) {
+        const prompt = getAgentPromptText(task);
+        copyText(prompt, `已生成并复制适用于 Agent 的格式化 Prompt！可直接发送给 AI 助手`);
+      }
+
+      function copyText(text, msg) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => showToast(msg)).catch(() => fallbackCopy(text, msg));
+        } else {
+          fallbackCopy(text, msg);
+        }
+      }
+
+      function fallbackCopy(text, msg) {
+        const t = document.createElement('textarea');
+        t.value = text;
+        t.style.position = 'fixed';
+        t.style.opacity = '0';
+        document.body.appendChild(t);
+        t.select();
+        try {
+          document.execCommand('copy');
+          showToast(msg);
+        } catch (e) {
+          showToast('复制失败，请手动选取');
+        }
+        document.body.removeChild(t);
+      }
+
+      function onTaskDragStart(evt, task) {
+        draggingTaskId.value = task.id;
+        evt.target.classList.add('is-dragging');
+        evt.dataTransfer.effectAllowed = 'move';
+        evt.dataTransfer.setData('text/plain', task.id);
+      }
+
+      function onTaskDragEnd(evt) {
+        evt.target.classList.remove('is-dragging');
+        draggingTaskId.value = null;
+        dragOverColId.value = null;
+        dragOverDate.value = null;
+      }
+
+      function onDropKanbanCol(colId) {
+        if (!draggingTaskId.value) return;
+        const target = tasks.value.find(t => t.id === draggingTaskId.value);
+        if (target && target.status !== colId) {
+          target.status = colId;
+          if (colId === 'done') {
+            target.completedDate = getFormattedDate(0);
+          } else {
+            delete target.completedDate;
+          }
+          saveData();
+          showToast(`已流转待办至 [${getColTitle(colId)}]`);
+        }
+        draggingTaskId.value = null;
+        dragOverColId.value = null;
+      }
+
+      function onDragLeaveCol(colId) {
+        if (dragOverColId.value === colId) {
+          dragOverColId.value = null;
+        }
+      }
+
+      function onDragLeaveDate(dateStr) {
+        if (dragOverDate.value === dateStr) {
+          dragOverDate.value = null;
+        }
+      }
+
+      function getColTitle(colId) {
+        const c = (kanbanColumns.value || []).find(item => item.id === colId);
+        return c ? c.title : colId;
+      }
+
+      function prevMonth() {
+        if (calendarMonth.value === 0) {
+          calendarYear.value--;
+          calendarMonth.value = 11;
+        } else {
+          calendarMonth.value--;
+        }
+      }
+
+      function nextMonth() {
+        if (calendarMonth.value === 11) {
+          calendarYear.value++;
+          calendarMonth.value = 0;
+        } else {
+          calendarMonth.value++;
+        }
+      }
+
+      function goToTodayCalendar() {
+        const now = new Date();
+        calendarYear.value = now.getFullYear();
+        calendarMonth.value = now.getMonth();
+      }
+
+      const calendarGrid = computed(() => {
+        const year = calendarYear.value;
+        const month = calendarMonth.value;
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const totalDaysCurrentMonth = lastDay.getDate();
+
+        let dayOfWeek = firstDay.getDay();
+        const leadingDaysCount = (dayOfWeek === 0 ? 7 : dayOfWeek) - 1;
+        const prevMonthLastDate = new Date(year, month, 0).getDate();
+
+        const cells = [];
+
+        for (let i = leadingDaysCount - 1; i >= 0; i--) {
+          const dayNum = prevMonthLastDate - i;
+          const prevDate = new Date(year, month - 1, dayNum);
+          const dateStr = prevDate.toISOString().split('T')[0];
+          cells.push({
+            date: dateStr,
+            dayNumber: dayNum,
+            isCurrentMonth: false,
+            isToday: dateStr === todayStr,
+            tasks: filteredTasks.value.filter(t => t.dueDate === dateStr)
+          });
+        }
+
+        for (let d = 1; d <= totalDaysCurrentMonth; d++) {
+          const curDate = new Date(year, month, d);
+          const dateStr = curDate.toISOString().split('T')[0];
+          cells.push({
+            date: dateStr,
+            dayNumber: d,
+            isCurrentMonth: true,
+            isToday: dateStr === todayStr,
+            tasks: filteredTasks.value.filter(t => t.dueDate === dateStr)
+          });
+        }
+
+        const trailingDaysCount = 42 - cells.length;
+        for (let t = 1; t <= trailingDaysCount; t++) {
+          const nextDate = new Date(year, month + 1, t);
+          const dateStr = nextDate.toISOString().split('T')[0];
+          cells.push({
+            date: dateStr,
+            dayNumber: t,
+            isCurrentMonth: false,
+            isToday: dateStr === todayStr,
+            tasks: filteredTasks.value.filter(t => t.dueDate === dateStr)
+          });
+        }
+
+        return cells;
+      });
+
+      const currentMonthTaskCount = computed(() => {
+        const ym = `${calendarYear.value}-${String(calendarMonth.value + 1).padStart(2, '0')}`;
+        return filteredTasks.value.filter(t => (t.dueDate || '').startsWith(ym)).length;
+      });
+
+      function onCalendarDrop(dateStr) {
+        if (draggingTaskId.value) {
+          const target = tasks.value.find(t => t.id === draggingTaskId.value);
+          if (target) {
+            target.dueDate = dateStr;
+            saveData();
+            showToast(`已将待办 [${target.code}] 排期调整至 ${dateStr}`);
+          }
+        }
+        draggingTaskId.value = null;
+        dragOverDate.value = null;
+      }
+
+      function openCreateDrawerWithDate(dateStr) {
+        openCreateDrawerWithStatus('todo');
+        if (dateStr) activeForm.value.dueDate = dateStr;
+      }
+
+      function openDetailDrawer(task) {
+        isEditingNew.value = false;
+        descMode.value = 'preview';
+        activeForm.value = JSON.parse(JSON.stringify(task));
+        isDrawerOpen.value = true;
+      }
+
+      function openCreateDrawer() {
+        openCreateDrawerWithStatus('todo');
+      }
+
+      function openCreateDrawerWithStatus(statusCol) {
+        isEditingNew.value = true;
+        descMode.value = 'edit';
+        activeForm.value = {
+          id: 'task-' + Date.now(),
+          code: '#待分配',
+          title: '',
+          description: `### 任务目标\n由 AI Agent 调度生成，请填写需求与目标。\n\n- [ ] 步骤一\n- [ ] 步骤二`,
+          status: statusCol || 'todo',
+          priority: 'P1',
+          dueDate: getFormattedDate(0),
+          dueTime: '09:00',
+          projectPath: 'd:/Workspace/personal/AgentDashboard',
+          categoryId: activeCategory.value || 'work',
+          tags: ['ai-agent']
+        };
+        isDrawerOpen.value = true;
+      }
+
+      function closeDrawer() {
+        isDrawerOpen.value = false;
+      }
+
+      async function saveTask() {
+        if (!activeForm.value.title.trim()) {
+          showToast('请填写待办标题');
+          return;
+        }
+        try {
+          const creating = isEditingNew.value;
+          const code = String(activeForm.value.code || '').replace(/^#/, '');
+          const response = await fetch(creating ? '/api/todos' : `/api/todos/${encodeURIComponent(code)}`, {
+            method: creating ? 'POST' : 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(toApiTask(activeForm.value))
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          const saved = fromApiTask(result.todo);
+          if (creating) tasks.value.unshift(saved);
+          else {
+            const idx = tasks.value.findIndex(t => t.id === activeForm.value.id);
+            if (idx !== -1) tasks.value[idx] = saved;
+          }
+          showToast(creating ? `已创建待办 [${saved.code}]` : `待办 [${saved.code}] 已更新`);
+          closeDrawer();
+        } catch (e) {
+          showToast(`保存失败: ${e.message || e}`);
+        }
+      }
+
+      async function deleteCurrentTask() {
+        if (!confirm('确认删除此待办项？')) return;
+        try {
+          const code = String(activeForm.value.code || '').replace(/^#/, '');
+          const response = await fetch(`/api/todos/${encodeURIComponent(code)}`, { method: 'DELETE' });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+          tasks.value = tasks.value.filter(t => t.id !== activeForm.value.id);
+          showToast('待办已删除');
+          closeDrawer();
+        } catch (e) {
+          showToast(`删除失败: ${e.message || e}`);
+        }
+      }
+
+      function setFormDateQuick(mode) {
+        if (mode === 'today') activeForm.value.dueDate = getFormattedDate(0);
+        if (mode === 'tomorrow') activeForm.value.dueDate = getFormattedDate(1);
+      }
+
+      function addFormTag() {
+        if (!newTagInput.value) return;
+        const tag = newTagInput.value.replace(/^#/, '').trim();
+        if (tag && !activeForm.value.tags.includes(tag)) {
+          activeForm.value.tags.push(tag);
+        }
+        newTagInput.value = '';
+      }
+
+      function quickAddFormTag(tag) {
+        if (!activeForm.value.tags.includes(tag)) {
+          activeForm.value.tags.push(tag);
+        }
+      }
+
+      function removeFormTag(tag) {
+        activeForm.value.tags = activeForm.value.tags.filter(t => t !== tag);
+      }
+
+      function createCategory() {
+        const name = newCategoryName.value.trim();
+        if (!name) return;
+        const colors = ['#f97316', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        const newCat = {
+          id: 'cat-' + Date.now(),
+          name: name,
+          color: randomColor,
+          custom: true
+        };
+        categories.value.push(newCat);
+        newCategoryName.value = '';
+        showAddCategoryInput.value = false;
+        saveData();
+        showToast(`已添加新分类: ${name}`);
+      }
+
+      function removeCategory(catId) {
+        if (confirm('确认删除该分类？')) {
+          categories.value = categories.value.filter(c => c.id !== catId);
+          if (activeCategory.value === catId) activeCategory.value = null;
+          saveData();
+          showToast('分类已删除');
+        }
+      }
+
+      function getCategoryName(catId) {
+        const c = categories.value.find(item => item.id === catId);
+        return c ? c.name : '未分类';
+      }
+
+      function formatShortPath(path) {
+        if (!path) return '';
+        const parts = path.split(/[/\\]/);
+        return parts.length > 2 ? parts.slice(-2).join('/') : path;
+      }
+
+      function getLastFolderName(path) {
+        if (!path) return '';
+        const clean = path.replace(/[/\\]+$/, '');
+        const parts = clean.split(/[/\\]/);
+        return parts[parts.length - 1] || path;
+      }
+
+      function formatDisplayDate(dateStr, timeStr) {
+        if (!dateStr) return '未指定';
+        if (timeStr) {
+          return `${dateStr} ${timeStr}`;
+        }
+        return dateStr;
+      }
+
+      function isTaskToday(task) {
+        if (!task || !task.dueDate) return false;
+        return task.dueDate === getFormattedDate(0);
+      }
+
+      function isTaskTomorrow(task) {
+        if (!task || !task.dueDate) return false;
+        return task.dueDate === getFormattedDate(1);
+      }
+
+      function getPriorityBadgeClass(priority) {
+        switch (priority) {
+          case 'P0': return 'bg-rose-50 text-rose-600 border border-rose-200';
+          case 'P1': return 'bg-amber-50 text-amber-600 border border-amber-200';
+          case 'P2': return 'bg-orange-50 text-orange-600 border border-orange-200';
+          default: return 'bg-slate-100 text-slate-600 border border-slate-200';
+        }
+      }
+
+      function getCalendarPillClass(task) {
+        if (task.status === 'done') {
+          return 'bg-emerald-50 text-emerald-700 border-emerald-200 line-through opacity-70';
+        }
+        if (task.priority === 'P0') {
+          return 'bg-rose-50 text-rose-700 border-rose-200';
+        }
+        if (task.priority === 'P1') {
+          return 'bg-amber-50 text-amber-700 border-amber-200';
+        }
+        return 'bg-slate-50 text-slate-700 border-slate-200';
+      }
+
+      function getPriorityDot(priority) {
+        switch (priority) {
+          case 'P0': return 'bg-rose-500';
+          case 'P1': return 'bg-amber-500';
+          case 'P2': return 'bg-brand-500';
+          default: return 'bg-slate-400';
+        }
+      }
+
+      // 工作台今日待办区看板聚合：仅显示今天的待办及今天完成的任务
+      const workbenchTodayTasks = computed(() => {
+        const today = getFormattedDate(0);
+        return (tasks.value || []).filter(task => {
+          if (task.status === 'done') {
+            return task.completedDate === today || (!task.completedDate && task.dueDate === today);
+          }
+          return task.dueDate === today;
+        });
+      });
+
+      function getWorkbenchTodayColumnTasks(colId) {
+        return workbenchTodayTasks.value.filter(task => task.status === colId);
+      }
+
+      // 工作台核心待办聚合计算 (完全对应设计图 5 条进入待办与 3 条进行中待办)
+      const workbenchPendingTasks = computed(() => {
+        const refIds = ['task-ref-1', 'task-ref-2', 'task-ref-3', 'task-ref-4', 'task-ref-5'];
+        const list = tasks.value.filter(t => refIds.includes(t.id));
+        if (list.length >= 5) return list;
+        return tasks.value.filter(t => t.status === 'todo').slice(0, 5);
+      });
+
+      const workbenchInProgressTasks = computed(() => {
+        const refIds = ['task-ref-6', 'task-ref-7', 'task-ref-8'];
+        const list = tasks.value.filter(t => refIds.includes(t.id));
+        if (list.length >= 3) return list;
+        return tasks.value.filter(t => t.status === 'in_progress').slice(0, 3);
+      });
+
+      const activeAgentsCount = computed(() => {
+        return agents.value.filter(a => a.status === 'busy' || a.status === 'waiting_approval').length;
+      });
+
+      const pendingTasksCount = computed(() => {
+        return tasks.value.filter(t => t.status === 'todo').length;
+      });
+
+      const completedTodayCount = computed(() => workbenchTodayTasks.value.filter(t => t.status === 'done').length);
+      const todayProgressPct = computed(() => {
+        const total = workbenchTodayTasks.value.length;
+        return total ? Math.round((completedTodayCount.value / total) * 100) : 0;
+      });
+
+      function startNewAgentTask(agent) {
+        openCreateDrawerWithStatus('in_progress');
+        showToast(`正在为「${agent.name}」新建并分配开发任务`);
+      }
+
+      const todayTasks = computed(() => {
+        return tasks.value.filter(t => t.dueDate === todayStr);
+      });
+
+      const inProgressTasks = computed(() => {
+        return tasks.value.filter(t => t.status === 'in_progress');
+      });
+
+      const isRefreshingAll = ref(false);
+
+      function emptyCodexAgent(index, quota = {}) {
+        const remaining = quota.remainingPercent || 0;
+        return {
+          id: `codex-${index + 1}`,
+          name: index === 0 ? 'Codex' : `Codex ${index + 1}`,
+          role: '等待本地会话 · Codex',
+          avatarLetter: index === 0 ? 'C' : String(index + 1),
+          avatarBg: 'bg-[#0f172a] text-white',
+          status: 'idle',
+          statusLabel: '空闲',
+          statusBadgeClass: 'text-emerald-600 bg-emerald-50 border border-emerald-100',
+          dotColor: 'bg-emerald-500',
+          task: '暂无最近会话',
+          timeEst: '',
+          progress: 0,
+          codingPlanName: `Coding plan ${quota.windowName || '额度'}`,
+          codingPlanRemainingPct: remaining,
+          codingPlanRemainingStr: `剩余 ${Math.round(remaining)}%`,
+          codingPlanResetCycle: quota.resetsAt ? `重置：${new Date(quota.resetsAt).toLocaleString('zh-CN')}` : '重置时间不可用',
+          quotaUsed: quota.usedPercent || 0,
+          quotaTotal: 100,
+          quotaRemaining: `${Math.round(remaining)}%`,
+          quotaPct: remaining,
+          isLoadingQuota: false,
+          agentTasks: []
+        };
+      }
+
+      function applyCodexSnapshot(snapshot) {
+        const quota = snapshot.quota || {};
+        const live = Array.isArray(snapshot.agents) ? snapshot.agents : [];
+        const agent = live[0] || emptyCodexAgent(0, quota);
+        agent.agentTasks = (agent.agentTasks || []).map((item, taskIndex) => ({
+            id: item.id || `${agent.id}-task-${taskIndex}`,
+            num: item.num || `任务${taskIndex + 1}`,
+            ...item
+        }));
+        agents.value = [agent];
+      }
+
+      async function fetchCodexStatus(force = false, notify = false) {
+        isRefreshingAll.value = true;
+        agents.value.forEach(a => a.isLoadingQuota = true);
+        try {
+          const response = await fetch(force ? '/api/codex/refresh' : '/api/codex/status', {
+            method: force ? 'POST' : 'GET',
+            cache: 'no-store'
+          });
+          const snapshot = await response.json();
+          if (!response.ok || !snapshot.ok) throw new Error(snapshot.error || `HTTP ${response.status}`);
+          applyCodexSnapshot(snapshot);
+          if (notify) showToast('已同步 Codex 额度、最近会话与运行状态');
+        } catch (e) {
+          agents.value.forEach(a => a.isLoadingQuota = false);
+          if (notify) showToast(`Codex 状态同步失败: ${e.message || e}`);
+        } finally {
+          isRefreshingAll.value = false;
+        }
+      }
+
+      function fetchAgentQuota(agent) {
+        return fetchCodexStatus(true, true);
+      }
+
+      function fetchAllQuotas() {
+        return fetchCodexStatus(true, true);
+      }
+
+      // Dashboard 只读展示审批状态；真实批准/驳回必须在 Codex 中完成。
+      function approveAgentAction(agent, isApproved) {
+        showToast(`请回到 Codex 聊天「${agent.task || agent.name}」处理输入或审批`);
+      }
+
+      // 2.5D 办公桌左侧：根据并行任务数自动压缩间距，确保所有任务块都留在桌面范围内。
+      function getTaskCy(tIdx, total = 1) {
+        const spacing = total <= 1 ? 0 : Math.min(14, 34 / (total - 1));
+        return Number((108 - tIdx * spacing).toFixed(1));
+      }
+
+      // 2.5D 办公桌右侧：任务长方体三态视觉样式 (绿-最近完成, 橙-待确认闪烁, 蓝-进行中流光)
+      function getTaskBlockStyle(task) {
+        if (!task) return { topFill: '#34d399', rightFill: '#10b981', leftFill: '#059669', stroke: '#a7f3d0', animClass: 'task-block-done' };
+        if (task.status === 'waiting_approval' || task.status === 'confirm') {
+          return {
+            topFill: '#fbbf24',      // 亮暖橙
+            rightFill: '#f59e0b',    // 活力橙
+            leftFill: '#d97706',     // 深橙阴影
+            stroke: '#fef08a',
+            animClass: 'task-block-orange-pulse'
+          };
+        }
+        if (task.status === 'in_progress' || task.status === 'busy') {
+          return {
+            topFill: '#38bdf8',      // 天空青蓝
+            rightFill: '#0284c7',    // 湖蓝
+            leftFill: '#0369a1',     // 深海蓝阴影
+            stroke: '#bae6fd',
+            animClass: 'task-block-blue-stream'
+          };
+        }
+        // 默认: 最近完成 (绿色)
+        return {
+          topFill: '#34d399',        // 翡翠浅绿
+          rightFill: '#10b981',      // 翡翠绿
+          leftFill: '#059669',       // 深绿阴影
+          stroke: '#a7f3d0',
+          animClass: 'task-block-done'
+        };
+      }
+
+      // 2.5D 办公桌：水柱额度三档级别计算 (>40% 绿, <=40% 橙, <10% 红)
+      function getQuotaLevel(pct) {
+        if (pct < 10) return 'low';
+        if (pct <= 40) return 'medium';
+        return 'high';
+      }
+
+      // 2.5D 办公桌：计算玻璃圆柱体水面椭圆 Y 坐标 (底部 y=123, 顶部 y=75, 最大高 48)
+      function getCylinderSurfaceY(pct) {
+        const clamped = Math.max(0, Math.min(100, pct != null ? pct : 0));
+        const maxCylinderHeight = 48;
+        const bottomY = 123;
+        const liquidHeight = (maxCylinderHeight * clamped) / 100;
+        return Number((bottomY - liquidHeight).toFixed(1));
+      }
+
+      // 2.5D 办公桌：计算水柱实体高度
+      function getCylinderBodyHeight(pct) {
+        const clamped = Math.max(0, Math.min(100, pct != null ? pct : 0));
+        const maxCylinderHeight = 48;
+        const liquidHeight = (maxCylinderHeight * clamped) / 100;
+        return Number((liquidHeight + 6).toFixed(1));
+      }
+
+      // 2.5D 办公桌：转椅品牌标识样式与文本
+      function getChairStyle(agentId) {
+        if (String(agentId || '').startsWith('codex-')) {
+          return { bg: '#ecfdf5', stroke: '#a7f3d0', text: '#059669', font: 'monospace', label: '>_Codex' };
+        }
+        switch (agentId) {
+          case 'codex':
+            return { bg: '#ecfdf5', stroke: '#a7f3d0', text: '#059669', font: 'monospace', label: '>_Codex' };
+          case 'claude-code':
+            return { bg: '#fff7ed', stroke: '#fed7aa', text: '#c2410c', font: 'serif', label: '✻ Claude' };
+          case 'browser-agent':
+            return { bg: '#f0f9ff', stroke: '#bae6fd', text: '#0284c7', font: 'sans-serif', label: '🌐 Browser' };
+          case 'data-agent':
+            return { bg: '#eef2ff', stroke: '#c7d2fe', text: '#4f46e5', font: 'sans-serif', label: '✦ Data' };
+          case 'ops-agent':
+            return { bg: '#f8fafc', stroke: '#cbd5e1', text: '#475569', font: 'monospace', label: '⚙ Ops' };
+          default:
+            return { bg: '#f8fafc', stroke: '#e2e8f0', text: '#334155', font: 'sans-serif', label: 'AI Agent' };
+        }
+      }
+
+      // 切换单个 Agent 状态 (工作中 / 待确认 / 空闲)
+      function setAgentState(agent, state) {
+        agent.status = state;
+        if (state === 'busy') {
+          agent.statusLabel = '忙碌';
+          agent.statusBadgeClass = 'text-rose-500 bg-rose-50 border border-rose-100';
+          agent.dotColor = 'bg-rose-500 animate-pulse';
+          if (!agent.task || agent.task === '暂无任务') {
+            agent.task = agent.id === 'codex' ? '实现用户认证模块' : (agent.id === 'claude-code' ? '重构系统架构' : (agent.id === 'data-agent' ? '生成月度指标报表' : '处理开发任务'));
+          }
+          if (agent.agentTasks && agent.agentTasks.length) {
+            agent.agentTasks[1].status = 'in_progress';
+            agent.agentTasks[1].statusLabel = '进行中';
+            agent.agentTasks[2].status = 'in_progress';
+            agent.agentTasks[2].statusLabel = '进行中';
+          }
+          showToast(`「${agent.name}」已开始工作，全力推进任务`);
+        } else if (state === 'waiting_approval' || state === 'confirm') {
+          agent.status = 'waiting_approval';
+          agent.statusLabel = '待确认';
+          agent.statusBadgeClass = 'text-blue-600 bg-blue-50 border border-blue-100';
+          agent.dotColor = 'bg-blue-500 animate-ping';
+          agent.pendingAction = '高风险操作审批';
+          if (agent.agentTasks && agent.agentTasks.length) {
+            agent.agentTasks[2].status = 'waiting_approval';
+            agent.agentTasks[2].statusLabel = '待确认';
+          }
+          showToast(`「${agent.name}」正在等待审批指令`);
+        } else {
+          agent.status = 'idle';
+          agent.statusLabel = '空闲';
+          agent.statusBadgeClass = 'text-emerald-600 bg-emerald-50 border border-emerald-100';
+          agent.dotColor = 'bg-emerald-500';
+          agent.task = '暂无任务';
+          agent.pendingAction = null;
+          if (agent.agentTasks && agent.agentTasks.length) {
+            agent.agentTasks.forEach(t => {
+              t.status = 'done';
+              t.statusLabel = '最近完成';
+            });
+          }
+          showToast(`「${agent.name}」已离座待命，转椅进入空闲状态`);
+        }
+      }
+
+      // 全员一键切换状态
+      function setAllAgentStates(state) {
+        agents.value.forEach(a => setAgentState(a, state));
+      }
+
+      // 调整单个 Agent 水柱额度
+      function setAgentQuota(agent, pct) {
+        agent.codingPlanRemainingPct = pct;
+        showToast(`已调整「${agent.name}」水柱额度为 ${pct}%`);
+      }
+
+      // 全员一键切换水柱额度对比
+      function setAllAgentQuotas(q0 = 70, q1 = 35, q2 = 8, q3 = 90, q4 = 75) {
+        if (agents.value[0]) agents.value[0].codingPlanRemainingPct = q0;
+        if (agents.value[1]) agents.value[1].codingPlanRemainingPct = q1;
+        if (agents.value[2]) agents.value[2].codingPlanRemainingPct = q2;
+        if (agents.value[3]) agents.value[3].codingPlanRemainingPct = q3;
+        if (agents.value[4]) agents.value[4].codingPlanRemainingPct = q4;
+        showToast('已更新全员桌面水柱额度');
+      }
+
+      // 切换待办完成状态
+      function toggleTaskDone(task) {
+        if (task.status === 'done') {
+          task.status = 'todo';
+          delete task.completedDate;
+          showToast(`已将 [${task.code}] 重置为待处理`);
+        } else {
+          task.status = 'done';
+          task.completedDate = getFormattedDate(0);
+          showToast(`🎉 已完成任务 [${task.code}]`);
+        }
+        saveData();
+      }
+
+      // 流转待办至下一阶段
+      function advanceTaskStatus(task) {
+        if (task.status === 'in_progress') {
+          task.status = 'review';
+          showToast(`已将 [${task.code}] 流转至待验收`);
+        } else if (task.status === 'review') {
+          task.status = 'done';
+          showToast(`🎉 已将 [${task.code}] 验收完成`);
+        }
+        saveData();
+      }
+
+      function switchModule(mod) {
+        activePrimaryModule.value = mod;
+        if (mod !== 'todos' && mod !== 'workbench') {
+          showToast(`已切换至 [${mod}] 预留扩展模块`);
+        }
+      }
+
+      onMounted(async () => {
+        await loadInitialData();
+        await fetchCodexStatus(false, false);
+        window.setInterval(() => fetchCodexStatus(false, false), 15000);
+        try {
+          const savedTheme = localStorage.getItem('agentflow_theme');
+          if (savedTheme && ['mono', 'indigo', 'terracotta'].includes(savedTheme)) {
+            currentTheme.value = savedTheme;
+          } else {
+            currentTheme.value = 'mono'; // 默认黑白主题
+          }
+        } catch (e) {
+          currentTheme.value = 'mono';
+        }
+        document.documentElement.setAttribute('data-theme', currentTheme.value);
+
+        // 点击外部关闭主题浮层
+        window.addEventListener('click', () => {
+          showThemeMenu.value = false;
+        });
+      });
+
+      return {
+        activePrimaryModule,
+        currentViewMode,
+        activeTimeFilter,
+        activeCategory,
+        activeCategoryObj,
+        selectedTag,
+        selectedPriority,
+        searchQuery,
+        tasks,
+        categories,
+        timeFilters,
+        kanbanColumns,
+        isColumnManagerOpen,
+        newColumnTitle,
+        newColumnColor,
+        availableDotColors,
+        openColumnManagerModal,
+        closeColumnManagerModal,
+        addKanbanColumn,
+        updateColumnTitle,
+        promptRenameColumn,
+        removeKanbanColumn,
+        resetDefaultKanbanColumns,
+        saveKanbanColumns,
+        priorityOptions,
+        allTags,
+        isTagsExpanded,
+        displayedTags,
+        totalTaskCount,
+        filteredTasks,
+        currentViewTitle,
+        renderedDescription,
+        toastMessage,
+
+        todayStr,
+        calendarYear,
+        calendarMonth,
+        weekDays,
+        calendarGrid,
+        currentMonthTaskCount,
+        dragOverDate,
+        prevMonth,
+        nextMonth,
+        goToTodayCalendar,
+        onCalendarDrop,
+        openCreateDrawerWithDate,
+        getCalendarPillClass,
+        getPriorityDot,
+
+        showAddCategoryInput,
+        newCategoryName,
+        createCategory,
+        removeCategory,
+
+        isDrawerOpen,
+        isEditingNew,
+        descMode,
+        activeForm,
+        newTagInput,
+        openDetailDrawer,
+        openCreateDrawer,
+        openCreateDrawerWithStatus,
+        closeDrawer,
+        saveTask,
+        deleteCurrentTask,
+        setFormDateQuick,
+        addFormTag,
+        quickAddFormTag,
+        removeFormTag,
+
+        draggingTaskId,
+        dragOverColId,
+        onTaskDragStart,
+        onTaskDragEnd,
+        onDropKanbanCol,
+        onDragLeaveCol,
+        onDragLeaveDate,
+
+        quickCopyTask,
+        copyTaskForAgent,
+        getAgentPromptText,
+
+        saveData,
+        getFilterCount,
+        getCategoryCount,
+        getTagCount,
+        getPriorityCount,
+        getColumnTasks,
+        getCategoryName,
+        formatShortPath,
+        getLastFolderName,
+        formatDisplayDate,
+        isTaskToday,
+        isTaskTomorrow,
+        generateTaskCode,
+        getPriorityBadgeClass,
+        switchModule,
+        showToast,
+
+        themes,
+        currentTheme,
+        currentThemeConfig,
+        showThemeMenu,
+        isHoveringTheme,
+        setTheme,
+
+        // 工作台状态与方法 (完全对应设计图)
+        agents,
+        workbenchTodayTasks,
+        getWorkbenchTodayColumnTasks,
+        workbenchPendingTasks,
+        workbenchInProgressTasks,
+        activeAgentsCount,
+        pendingTasksCount,
+        completedTodayCount,
+        todayProgressPct,
+        startNewAgentTask,
+        todayTasks,
+        inProgressTasks,
+        isRefreshingAll,
+        fetchAgentQuota,
+        fetchAllQuotas,
+        approveAgentAction,
+        toggleTaskDone,
+        advanceTaskStatus,
+
+        // 2.5D 办公区小人、水柱额度与右侧长方体任务方法
+        getQuotaLevel,
+        getCylinderSurfaceY,
+        getCylinderBodyHeight,
+        getChairStyle,
+        setAgentState,
+        setAllAgentStates,
+        setAgentQuota,
+        setAllAgentQuotas,
+        getTaskCy,
+        getTaskBlockStyle
+      };
+    }
+  });
+
+  try {
+    app.mount('#app');
+    console.log('Vue 3 App successfully mounted to #app');
+  } catch(err) {
+    console.error('Mount Error:', err);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# Local Agent Todo data
+data/*
+!data/.gitkeep
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+
+# Local development
+node_modules/
+coverage/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
