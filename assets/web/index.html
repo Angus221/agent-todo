@@ -1446,22 +1446,19 @@
 
             </div>
 
-            <aside class="w-full min-w-0 rounded-2xl border border-white/90 bg-white/65 backdrop-blur-md p-3.5 sm:p-4 shadow-[0_4px_18px_rgba(15,23,42,0.04)]" aria-label="当前 Codex 任务列表">
-              <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
+            <aside class="w-full min-w-0 px-1 sm:px-2" aria-label="当前 Codex 任务列表">
+              <div class="pb-2">
                 <div class="min-w-0">
                   <h3 class="text-xs font-bold text-slate-800">当前 Codex 任务</h3>
                   <p class="text-[10px] text-slate-400 mt-0.5">每 5 秒自动同步工作状态</p>
                 </div>
-                <span class="flex-shrink-0 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                  {{ agents[0]?.agentTasks?.length || 0 }} 项
-                </span>
               </div>
 
-              <div v-if="agents[0]?.agentTasks?.length" class="mt-2 divide-y divide-slate-100 max-h-[230px] overflow-y-auto pr-1">
+              <div v-if="agents[0]?.agentTasks?.length" class="mt-1 space-y-1 max-h-[230px] overflow-y-auto pr-1">
                 <div
                   v-for="task in agents[0].agentTasks"
                   :key="'codex-list-' + task.id"
-                  class="group flex items-center gap-3 min-h-10 py-2 px-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                  class="group flex items-center gap-3 min-h-9 py-1"
                   :title="task.title"
                 >
                   <span v-if="task.status === 'done'" class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.35)]" aria-label="已完成">
@@ -1475,7 +1472,7 @@
                 </div>
               </div>
 
-              <div v-else class="mt-3 min-h-[92px] rounded-xl border border-dashed border-slate-200 bg-white/35 flex items-center justify-center text-[11px] text-slate-400">
+              <div v-else class="mt-3 py-5 text-[11px] text-slate-400">
                 Codex 当前没有活动任务
               </div>
             </aside>
