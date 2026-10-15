@@ -2195,16 +2195,20 @@
   <!-- ========================================================================= -->
   <div 
     v-if="isDrawerOpen" 
-    class="fixed inset-0 z-50 flex justify-end transition-opacity duration-300">
+    class="fixed inset-0 z-50 flex justify-end transition-opacity duration-300"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="todo-drawer-title"
+    @keydown.esc.stop.prevent="closeDrawer">
     
     <!-- 柔和遮罩背景 -->
     <div 
       @click="closeDrawer" 
       class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity cursor-pointer"></div>
 
-    <!-- 划出抽屉内容 (620px 宽) -->
+    <!-- 划出抽屉内容 -->
     <div 
-      class="relative w-full max-w-xl bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full transform transition-transform duration-300 z-10 ease-out">
+      class="relative w-full max-w-2xl bg-white border-l border-slate-200 shadow-2xl flex flex-col h-full transform transition-transform duration-300 z-10 ease-out">
       
       <!-- 头部 Header -->
       <div class="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between flex-shrink-0">
@@ -2212,25 +2216,25 @@
           <span class="text-xs font-mono font-bold text-brand-600 px-2 py-0.5 rounded bg-brand-50 border border-brand-200">
             {{ activeForm.code || '#AI-TASK' }}
           </span>
-          <span class="text-xs text-slate-600 font-medium">
+          <span id="todo-drawer-title" class="text-xs text-slate-600 font-medium">
             {{ isEditingNew ? '新建 AI 调度待办' : '待办详情 & Agent 任务上下文' }}
           </span>
         </div>
 
         <div class="flex items-center gap-2">
-          <!-- 一键复制给 Agent 描述 (橙色主操作) -->
+          <!-- 复制完整待办给 Agent (橙色主操作) -->
           <button 
             @click="copyTaskForAgent(activeForm)" 
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white text-xs font-medium shadow-sm transition-all active:scale-95 cursor-pointer"
-            title="生成结构化 Markdown 提示词直接喂给 AI Agent">
+            title="复制完整待办信息给 AI Agent">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
             </svg>
-            <span>一键复制给 Agent 描述</span>
+            <span>复制给 Agent</span>
           </button>
 
           <!-- 关闭抽屉按钮 -->
-          <button @click="closeDrawer" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer">✕</button>
+          <button @click="closeDrawer" aria-label="关闭待办侧滑栏" class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">✕</button>
         </div>
       </div>
 
@@ -2248,106 +2252,154 @@
           />
         </div>
 
-        <!-- 2. 四列属性快捷设置：状态、优先级、日期、分类 -->
-        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-          
-          <!-- 状态 -->
-          <div>
-            <label class="block text-[11px] text-slate-500 mb-1 font-medium">状态流转</label>
-            <select v-model="activeForm.status" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
-              <option value="todo">待处理 (To Do)</option>
-              <option value="in_progress">进行中 (In Progress)</option>
-              <option value="review">待验收 (Review)</option>
-              <option value="done">已完成 (Done)</option>
-            </select>
-          </div>
-
-          <!-- 优先级 -->
-          <div>
-            <label class="block text-[11px] text-slate-500 mb-1 font-medium">优先级</label>
-            <select v-model="activeForm.priority" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
-              <option value="P0">P0 - 紧急 (立即介入)</option>
-              <option value="P1">P1 - 高 (本周期关键)</option>
-              <option value="P2">P2 - 中 (常规排期)</option>
-              <option value="P3">P3 - 低 (灵感与备份)</option>
-            </select>
-          </div>
-
-          <!-- 计划排期 / 日期 -->
-          <div>
-            <label class="block text-[11px] text-slate-500 mb-1 font-medium">计划日期 (排期)</label>
-            <div class="flex items-center gap-1">
-              <input 
-                v-model="activeForm.dueDate" 
-                type="date" 
-                class="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-mono text-slate-800 focus:outline-none focus:border-brand-500"
-              />
-              <button @click="setFormDateQuick('today')" type="button" class="px-2 py-1 text-[10px] text-brand-600 hover:bg-brand-50 rounded border border-brand-200 cursor-pointer">今</button>
-              <button @click="setFormDateQuick('tomorrow')" type="button" class="px-2 py-1 text-[10px] text-brand-600 hover:bg-brand-50 rounded border border-brand-200 cursor-pointer">明</button>
+        <!-- 2. 属性快捷设置：单选项全部展开 -->
+        <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <fieldset>
+            <legend class="mb-1.5 text-[11px] font-semibold text-slate-500">状态流转</legend>
+            <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <label
+                v-for="col in kanbanColumns"
+                :key="'drawer-status-' + col.id"
+                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-semibold transition-all focus-within:ring-2 focus-within:ring-brand-400 focus-within:ring-offset-1"
+                :class="activeForm.status === col.id ? 'border-brand-400 bg-white text-slate-900 shadow-sm' : 'border-slate-200 bg-white/60 text-slate-500 hover:border-slate-300 hover:bg-white'"
+              >
+                <input v-model="activeForm.status" type="radio" name="todo-status" :value="col.id" class="sr-only" />
+                <span class="h-2 w-2 rounded-full" :class="col.dotColor"></span>
+                <span class="truncate">{{ col.title }}</span>
+                <svg v-if="activeForm.status === col.id" class="h-3.5 w-3.5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+              </label>
             </div>
-          </div>
+          </fieldset>
 
-          <!-- 所属分类 -->
+          <fieldset>
+            <legend class="mb-1.5 text-[11px] font-semibold text-slate-500">优先级</legend>
+            <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              <label
+                v-for="option in priorityOptions"
+                :key="'drawer-priority-' + option.value"
+                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-[11px] font-semibold transition-all focus-within:ring-2 focus-within:ring-brand-400 focus-within:ring-offset-1"
+                :class="activeForm.priority === option.value ? 'border-brand-400 bg-white text-slate-900 shadow-sm' : 'border-slate-200 bg-white/60 text-slate-500 hover:border-slate-300 hover:bg-white'"
+              >
+                <input v-model="activeForm.priority" type="radio" name="todo-priority" :value="option.value" class="sr-only" />
+                <span class="h-2 w-2 rounded-full" :class="option.badgeBg"></span>
+                <span>{{ option.label }}</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend class="mb-1.5 text-[11px] font-semibold text-slate-500">所属分类</legend>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="category in categories"
+                :key="'drawer-category-' + category.id"
+                class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold transition-all focus-within:ring-2 focus-within:ring-brand-400 focus-within:ring-offset-1"
+                :class="activeForm.categoryId === category.id ? 'border-brand-400 bg-white text-slate-900 shadow-sm' : 'border-slate-200 bg-white/60 text-slate-500 hover:border-slate-300 hover:bg-white'"
+              >
+                <input v-model="activeForm.categoryId" type="radio" name="todo-category" :value="category.id" class="sr-only" />
+                <span class="h-2 w-2 rounded-full" :style="{ backgroundColor: category.color }"></span>
+                <span>{{ category.name }}</span>
+              </label>
+            </div>
+          </fieldset>
+
           <div>
-            <label class="block text-[11px] text-slate-500 mb-1 font-medium">所属分类</label>
-            <select v-model="activeForm.categoryId" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-brand-500 cursor-pointer">
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <label for="todo-due-date" class="mb-1.5 block text-[11px] font-semibold text-slate-500">计划日期</label>
+            <div class="flex items-center gap-1.5">
+              <input
+                id="todo-due-date"
+                v-model="activeForm.dueDate"
+                type="date"
+                class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-mono text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              />
+              <button @click="setFormDateQuick('today')" type="button" class="rounded-lg border border-brand-200 bg-white px-2.5 py-2 text-[10px] font-semibold text-brand-600 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">今天</button>
+              <button @click="setFormDateQuick('tomorrow')" type="button" class="rounded-lg border border-brand-200 bg-white px-2.5 py-2 text-[10px] font-semibold text-brand-600 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">明天</button>
+            </div>
           </div>
         </div>
 
-        <!-- 3. 项目路径 (Project Path) -->
-        <div class="p-3 bg-orange-50/40 rounded-lg border border-orange-200">
-          <div class="flex items-center justify-between mb-1">
-            <label class="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-              <span>📂 项目路径 (Project Path)</span>
-              <span class="text-[10px] font-normal text-brand-600 font-mono">由 AI Agent 提供</span>
-            </label>
-            <button 
-              @click="activeForm.projectPath = 'd:/Workspace/personal/AgentDashboard'" 
-              class="text-[10px] text-brand-600 hover:underline cursor-pointer">
-              填入当前仓库
-            </button>
-          </div>
-          <input 
-            v-model.trim="activeForm.projectPath" 
-            type="text" 
-            placeholder="例如: d:/workspace/projects/payment-service 或 /app/backend" 
-            class="w-full px-2.5 py-1.5 font-mono bg-white border border-slate-300 text-slate-800 text-xs focus:border-brand-500 rounded focus:outline-none"
+        <!-- 3. 项目路径：单行展示，按需编辑 -->
+        <div class="flex min-h-8 items-center gap-2 text-xs">
+          <span class="flex-shrink-0 font-semibold text-slate-700">路径：</span>
+          <input
+            v-if="isProjectPathEditing"
+            v-model.trim="activeForm.projectPath"
+            type="text"
+            aria-label="项目路径"
+            placeholder="输入项目路径"
+            class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 font-mono text-xs text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
           />
-          <p class="text-[10px] text-slate-500 mt-1">此路径由 AI Agent 在生成任务时自动附带，一键复制时会嵌入提示词供 Agent 调取工具定位。</p>
+          <span v-else class="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-500" :title="activeForm.projectPath || '未设置'">
+            {{ activeForm.projectPath || '未设置' }}
+          </span>
+          <button
+            type="button"
+            @click="isProjectPathEditing = !isProjectPathEditing"
+            class="flex-shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-brand-600 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+          >{{ isProjectPathEditing ? '完成' : '编辑' }}</button>
         </div>
 
         <!-- 4. 任务标签管理 -->
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">任务标签 <span class="font-normal text-slate-400">（建议 1 个）</span></label>
-          <div class="flex flex-wrap items-center gap-1.5 mb-2">
+          <div class="mb-1.5 flex items-center justify-between gap-2">
+            <label class="text-xs font-semibold text-slate-700">任务标签 <span class="font-normal text-slate-400">（{{ (activeForm.tags || []).length }}）</span></label>
+            <button
+              type="button"
+              @click="isDrawerTagsExpanded = !isDrawerTagsExpanded"
+              class="rounded-md px-2 py-1 text-[11px] font-semibold text-brand-600 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              :aria-expanded="isDrawerTagsExpanded"
+            >
+              {{ isDrawerTagsExpanded ? '收起' : ((activeForm.tags || []).length > 3 ? `展开其余 ${(activeForm.tags || []).length - 3} 个` : '添加标签') }}
+            </button>
+          </div>
+          <div v-if="(activeForm.tags || []).length" class="flex flex-wrap items-center gap-1.5" :class="isDrawerTagsExpanded ? 'mb-2' : ''">
             <span 
-              v-for="t in activeForm.tags" 
+              v-for="t in (activeForm.tags || []).slice(0, isDrawerTagsExpanded ? (activeForm.tags || []).length : 3)"
               :key="t" 
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-medium">
               #{{ t }}
-              <span @click="removeFormTag(t)" class="cursor-pointer hover:text-rose-600 text-[10px] ml-0.5">✕</span>
+              <button v-if="isDrawerTagsExpanded" type="button" @click="removeFormTag(t)" class="ml-0.5 text-[10px] hover:text-rose-600 focus-visible:outline-none" :aria-label="'删除标签 ' + t">✕</button>
             </span>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div v-if="isDrawerTagsExpanded" class="flex items-center gap-1.5">
             <input 
               v-model.trim="newTagInput" 
               @keyup.enter="addFormTag"
+              aria-label="新增任务标签"
               placeholder="项目名-功能概括"
               class="px-2.5 py-1 bg-slate-50 border border-slate-300 text-xs w-56 text-slate-800 focus:bg-white focus:border-brand-500 rounded focus:outline-none"
             />
+            <button
+              type="button"
+              @click="addFormTag"
+              :disabled="!newTagInput.trim()"
+              class="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1"
+            >添加</button>
           </div>
-          <p class="mt-1.5 text-[10px] text-slate-400">优先使用“项目名-四五字功能概括”，避免堆叠相近标签。</p>
+          <p v-if="isDrawerTagsExpanded" class="mt-1.5 text-[10px] text-slate-400">优先使用“项目名-四五字功能概括”，避免堆叠相近标签。</p>
         </div>
 
-        <!-- 5. Markdown 任务描述 (编辑与实时预览) -->
+        <!-- 5. 待办详情（需求） -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-semibold text-slate-700 flex items-center gap-1">
-              <span>Markdown 描述与执行要求</span>
+              <span>待办详情（需求）</span>
             </label>
-            <div class="bg-slate-100 p-0.5 rounded flex items-center gap-0.5 border border-slate-200">
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                @click="copyTaskDescription(activeForm)"
+                class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-brand-600 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                title="仅复制待办详情"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                复制详情
+              </button>
+              <div class="bg-slate-100 p-0.5 rounded flex items-center gap-0.5 border border-slate-200">
               <button 
                 @click="descMode = 'edit'" 
                 :class="descMode === 'edit' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600'"
@@ -2356,6 +2408,7 @@
                 @click="descMode = 'preview'" 
                 :class="descMode === 'preview' ? 'bg-brand-500 text-white font-semibold' : 'text-slate-600'"
                 class="px-2 py-0.5 text-[10px] rounded transition-all cursor-pointer">实时预览</button>
+              </div>
             </div>
           </div>
 
@@ -2364,7 +2417,7 @@
             <textarea 
               v-model="activeForm.description" 
               rows="7" 
-              placeholder="在此输入详细任务背景、验收标准及技术要求，支持 Markdown 列表、代码块..."
+              placeholder="填写需求背景、目标、验收标准和必要约束，支持 Markdown..."
               class="w-full p-2.5 font-mono text-xs bg-slate-50 border border-slate-300 text-slate-800 leading-relaxed focus:border-brand-500 focus:bg-white rounded-lg focus:outline-none"></textarea>
           </div>
 
@@ -2374,19 +2427,6 @@
             class="p-3 bg-slate-50 rounded-lg border border-slate-200 min-h-[160px] max-h-[220px] overflow-y-auto markdown-body"
             v-html="renderedDescription">
           </div>
-        </div>
-
-        <!-- 6. 复制给 Agent 的 Prompt 模版预览 -->
-        <div class="rounded-lg bg-orange-50/50 p-3 border border-orange-200">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] font-semibold text-brand-700 flex items-center gap-1">
-              <span>⚡ 生成的 Agent Prompt 预览</span>
-            </span>
-            <button @click="copyTaskForAgent(activeForm)" class="text-[10px] text-brand-600 hover:underline font-medium cursor-pointer">
-              复制文本
-            </button>
-          </div>
-          <pre class="text-[10px] font-mono text-slate-600 bg-white p-2.5 rounded border border-orange-100 whitespace-pre-wrap select-all max-h-24 overflow-y-auto">{{ getAgentPromptText(activeForm) }}</pre>
         </div>
 
       </div>
@@ -2916,6 +2956,8 @@
       const isEditingNew = ref(false);
       const descMode = ref('preview');
       const newTagInput = ref('');
+      const isProjectPathEditing = ref(false);
+      const isDrawerTagsExpanded = ref(false);
       const activeForm = ref({
         id: '',
         code: '',
@@ -3273,7 +3315,7 @@
 
       const renderedDescription = computed(() => {
         if (!activeForm.value.description) {
-          return '<p class="text-slate-400 italic">暂无详细 Markdown 描述...</p>';
+          return '<p class="text-slate-400 italic">暂无待办详情...</p>';
         }
         if (window.marked && window.marked.parse) {
           return window.marked.parse(activeForm.value.description);
@@ -3306,6 +3348,10 @@ Please navigate to the Project Path specified above, analyze the current workspa
       function copyTaskForAgent(task) {
         const prompt = getAgentPromptText(task);
         copyText(prompt, `已生成并复制适用于 Agent 的格式化 Prompt！可直接发送给 AI 助手`);
+      }
+
+      function copyTaskDescription(task) {
+        copyText(task.description || '', task.description ? '已复制待办详情' : '待办详情为空');
       }
 
       function copyText(text, msg) {
@@ -3485,6 +3531,9 @@ Please navigate to the Project Path specified above, analyze the current workspa
       function openDetailDrawer(task) {
         isEditingNew.value = false;
         descMode.value = 'preview';
+        isProjectPathEditing.value = false;
+        isDrawerTagsExpanded.value = false;
+        newTagInput.value = '';
         activeForm.value = JSON.parse(JSON.stringify(task));
         isDrawerOpen.value = true;
       }
@@ -3496,6 +3545,9 @@ Please navigate to the Project Path specified above, analyze the current workspa
       function openCreateDrawerWithStatus(statusCol) {
         isEditingNew.value = true;
         descMode.value = 'edit';
+        isProjectPathEditing.value = false;
+        isDrawerTagsExpanded.value = false;
+        newTagInput.value = '';
         activeForm.value = {
           id: 'task-' + Date.now(),
           code: '#待分配',
@@ -3514,6 +3566,8 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       function closeDrawer() {
         isDrawerOpen.value = false;
+        isProjectPathEditing.value = false;
+        isDrawerTagsExpanded.value = false;
       }
 
       async function saveTask() {
@@ -4089,6 +4143,8 @@ Please navigate to the Project Path specified above, analyze the current workspa
         descMode,
         activeForm,
         newTagInput,
+        isProjectPathEditing,
+        isDrawerTagsExpanded,
         openDetailDrawer,
         openCreateDrawer,
         openCreateDrawerWithStatus,
@@ -4109,6 +4165,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
         quickCopyTask,
         copyTaskForAgent,
+        copyTaskDescription,
         getAgentPromptText,
 
         saveData,
