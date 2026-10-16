@@ -5,7 +5,13 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 type Json = Record<string, any>;
-type SessionFacts = { startedAt: number; completedAt: number; lastActivityAt: number; waitingSignal: boolean };
+type SessionFacts = {
+  startedAt: number;
+  completedAt: number;
+  lastActivityAt: number;
+  waitingSignal: boolean;
+  approvalResolvedSinceTaskStart: boolean;
+};
 
 const sessionFactsCache = new Map<string, { size: number; mtimeMs: number; facts: SessionFacts }>();
 let metadataCache: { quota: Json; threads: Json[] } | null = null;
@@ -115,7 +121,7 @@ function readUnreadThreadIds() {
 
 function sessionFacts(thread: Json): SessionFacts {
   const path = String(thread.path || '');
-  if (!path) return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false };
+  if (!path) return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false, approvalResolvedSinceTaskStart: false };
   try {
     const stat = statSync(path);
     const cached = sessionFactsCache.get(path);
@@ -124,37 +130,70 @@ function sessionFacts(thread: Json): SessionFacts {
     sessionFactsCache.set(path, { size: stat.size, mtimeMs: stat.mtimeMs, facts });
     return facts;
   } catch {
-    return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false };
+    return { startedAt: 0, completedAt: 0, lastActivityAt: 0, waitingSignal: false, approvalResolvedSinceTaskStart: false };
   }
 }
 
-function parseSessionFacts(events: Json[]): SessionFacts {
+export function parseSessionFacts(events: Json[]): SessionFacts {
   let startedAt = 0;
   let completedAt = 0;
   let lastActivityAt = 0;
-  let waitingSignal = false;
+  let eventWaitingSignal = false;
+  let approvalResolvedSinceTaskStart = false;
+  const pendingApprovalCalls = new Set<string>();
   for (const event of events) {
     const timestamp = Date.parse(event.timestamp || '') || 0;
     lastActivityAt = Math.max(lastActivityAt, timestamp);
     const payload = event.payload || {};
-    if (event.type === 'event_msg' && payload.type === 'task_started') startedAt = Math.max(startedAt, timestamp);
-    if (event.type === 'event_msg' && payload.type === 'task_complete') completedAt = Math.max(completedAt, timestamp);
-    if (event.type === 'response_item' && payload.type === 'custom_tool_call') {
-      const name = String(payload.name || payload.tool_name || '工具调用').replace(/^functions\./, '');
-      const status = payload.status === 'completed' ? 'done' : 'in_progress';
-      if (/request_user_input|approval|confirm/i.test(name) && status !== 'done') waitingSignal = true;
+    if (event.type === 'event_msg' && payload.type === 'task_started') {
+      startedAt = Math.max(startedAt, timestamp);
+      eventWaitingSignal = false;
+      approvalResolvedSinceTaskStart = false;
+      pendingApprovalCalls.clear();
     }
-    if (event.type === 'event_msg' && /approval|request_user_input|elicitation/i.test(String(payload.type || ''))) waitingSignal = true;
+    if (event.type === 'event_msg' && payload.type === 'task_complete') {
+      completedAt = Math.max(completedAt, timestamp);
+      eventWaitingSignal = false;
+      approvalResolvedSinceTaskStart = false;
+      pendingApprovalCalls.clear();
+    }
+    if (event.type === 'response_item' && /^(custom_tool_call|function_call)$/.test(String(payload.type || ''))) {
+      const name = String(payload.name || payload.tool_name || '工具调用').replace(/^functions\./, '');
+      const input = typeof payload.input === 'string' ? payload.input : JSON.stringify(payload.input || {});
+      const waitsForUser = /request_user_input|approval|confirm/i.test(name) || /require_escalated/i.test(input);
+      if (waitsForUser) {
+        pendingApprovalCalls.add(String(payload.call_id || payload.id || `${timestamp}-${name}`));
+        approvalResolvedSinceTaskStart = false;
+      }
+    }
+    if (event.type === 'response_item' && /^(custom_tool_call_output|function_call_output)$/.test(String(payload.type || ''))) {
+      const callId = String(payload.call_id || '');
+      if (pendingApprovalCalls.delete(callId)) approvalResolvedSinceTaskStart = true;
+    }
+    if (event.type === 'event_msg' && /approval|request_user_input|elicitation/i.test(String(payload.type || ''))) eventWaitingSignal = true;
   }
-  return { startedAt, completedAt, lastActivityAt, waitingSignal };
+  return {
+    startedAt,
+    completedAt,
+    lastActivityAt,
+    waitingSignal: eventWaitingSignal || pendingApprovalCalls.size > 0,
+    approvalResolvedSinceTaskStart,
+  };
 }
 
-function sessionActivity(thread: Json) {
-  const { startedAt, completedAt, lastActivityAt, waitingSignal } = sessionFacts(thread);
-  const unfinished = startedAt > completedAt;
+function threadWaitsForUser(thread: Json) {
+  const flags = thread?.status?.activeFlags || thread?.status?.active_flags || thread?.activeFlags || [];
+  return Array.isArray(flags) && flags.some((flag) => /waiting.*(approval|input|user)|approval/i.test(String(flag)));
+}
+
+export function sessionActivity(thread: Json) {
+  const { startedAt, completedAt, lastActivityAt, waitingSignal, approvalResolvedSinceTaskStart } = sessionFacts(thread);
+  const appStatus = typeof thread?.status === 'string' ? thread.status : thread?.status?.type;
+  const unfinished = startedAt > completedAt || appStatus === 'active';
   const quietMs = Date.now() - lastActivityAt;
+  const appWaiting = threadWaitsForUser(thread) && !approvalResolvedSinceTaskStart;
   let status = 'idle';
-  if (unfinished && (waitingSignal || quietMs > 90_000)) status = 'waiting_approval';
+  if (unfinished && (appWaiting || waitingSignal || quietMs > 90_000)) status = 'waiting_approval';
   else if (unfinished) status = 'busy';
   return { status, lastActivityAt };
 }
