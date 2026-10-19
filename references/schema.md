@@ -22,6 +22,8 @@ The persistent database is `data/agent-todo.sqlite`. The TypeScript store in `sc
 
 The protected statuses are `todo`, `in_progress`, and `done`. Their display names may be changed, but their ids and semantic `kind` values remain stable. The default optional review status is `review`.
 
+Execution lifecycle uses semantic kinds: move a todo to `active` before substantive work begins, move it to `review` after implementation and self-checks are complete, and use `complete` only after the user accepts or explicitly closes the result.
+
 The default categories are `work` and `personal`. Custom categories and statuses created in the dashboard are stored in the same database.
 
 ## Local HTTP API
