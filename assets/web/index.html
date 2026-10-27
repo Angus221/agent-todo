@@ -528,6 +528,46 @@
         animation: none;
       }
     }
+    .farm-stage {
+      background: linear-gradient(180deg, #cfeaf7 0%, #eaf6ec 58%, #d8edc7 100%);
+    }
+    .farm-stage canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+    .farm-hud-panel {
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.76);
+      box-shadow: 0 16px 42px rgba(72, 102, 54, 0.16);
+      backdrop-filter: blur(16px);
+    }
+    .farm-tooltip {
+      position: fixed;
+      z-index: 90;
+      max-width: 320px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: #f8fafc;
+      background: rgba(15, 23, 42, 0.92);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.28);
+      pointer-events: none;
+      transform: translateY(-4px);
+    }
+    .farm-tooltip strong,
+    .farm-tooltip span {
+      display: block;
+    }
+    .farm-tooltip strong {
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .farm-tooltip span {
+      margin-top: 4px;
+      color: #cbd5e1;
+      font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased h-screen overflow-hidden">
@@ -580,6 +620,19 @@
         <!-- Tooltip -->
         <span class="absolute left-14 px-2.5 py-1 bg-slate-900 text-xs text-white rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-50">
           待办中心 (看板/列表/日历)
+        </span>
+      </button>
+
+      <!-- 3. 3D 任务农场 -->
+      <button
+        @click="activePrimaryModule = 'farm'"
+        :class="activePrimaryModule === 'farm' ? 'bg-gradient-to-b from-lime-500 to-emerald-600 text-white shadow-[0_4px_16px_rgba(34,197,94,0.36)]' : 'text-slate-400 hover:text-slate-200 hover:bg-sidebar-850'"
+        class="w-11 h-11 rounded-xl flex flex-col items-center justify-center transition-all duration-200 relative group cursor-pointer"
+        id="nav-farm-btn">
+        <img src="/models/farm-preview.png" alt="" class="w-5 h-5 rounded-md object-cover ring-1 ring-white/30" />
+        <span class="text-[9px] font-medium tracking-tight mt-0.5">农场</span>
+        <span class="absolute left-14 px-2.5 py-1 bg-slate-900 text-xs text-white rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity border border-slate-700 shadow-xl z-50">
+          3D 任务农场
         </span>
       </button>
 
@@ -1603,7 +1656,67 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 模块 2：待办调度模式 (Todos 看板 / 列表 / 大日历)                          -->
+    <!-- 模块 2：3D 任务农场                                                       -->
+    <!-- ========================================================================= -->
+    <div v-else-if="activePrimaryModule === 'farm'" class="farm-stage flex-1 h-full overflow-hidden relative select-none">
+      <div ref="farmCanvasHost" class="absolute inset-0" aria-live="polite"></div>
+
+      <header class="absolute left-6 right-6 top-5 z-10 flex items-start justify-between gap-4 pointer-events-none">
+        <div class="farm-hud-panel rounded-2xl px-4 py-3 pointer-events-auto">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ring-1 ring-lime-200">
+              <img src="/models/farm-preview.png" alt="" class="h-full w-full object-cover" />
+            </span>
+            <div>
+              <h1 class="text-sm font-black tracking-tight text-slate-900">Agent 任务农场</h1>
+              <p class="mt-0.5 text-[10px] text-slate-500">拖动旋转 · 滚轮缩放 · 点击作物打开待办</p>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-semibold text-slate-600">
+            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-slate-400"></i>货架 {{ farmSummary.inbox }}</span>
+            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-lime-500"></i>已排期 {{ farmSummary.scheduled }}</span>
+            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-blue-500"></i>进行中 {{ farmSummary.active }}</span>
+            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-amber-500"></i>待验收 {{ farmSummary.review }}</span>
+            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-emerald-500"></i>已完成 {{ farmSummary.done }}</span>
+          </div>
+        </div>
+
+        <div class="farm-hud-panel rounded-xl p-1.5 pointer-events-auto">
+          <button
+            type="button"
+            @click="resetFarmCamera"
+            class="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-700 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
+            title="恢复默认视角">
+            恢复视角
+          </button>
+        </div>
+      </header>
+
+      <div class="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/70 bg-white/78 px-4 py-2 text-[10px] font-medium text-slate-600 shadow-lg backdrop-blur-md pointer-events-none">
+        货架＝未排期 · 左田＝已排期 · 中田＝进行中/待验收 · 右田＝已完成
+      </div>
+
+      <div v-if="farmLoading" class="absolute inset-0 z-20 grid place-items-center bg-[#d8eef5]/90 backdrop-blur-sm">
+        <div class="text-center">
+          <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/70 border-t-lime-600"></div>
+          <p class="mt-3 text-xs font-bold text-slate-700">正在载入 3D 任务农场…</p>
+          <p class="mt-1 text-[10px] text-slate-500">首次加载模型约 34 MB</p>
+        </div>
+      </div>
+
+      <div v-if="farmError" class="absolute inset-0 z-30 grid place-items-center bg-slate-100/95 p-8">
+        <div class="max-w-sm text-center">
+          <h2 class="text-sm font-bold text-slate-900">3D 农场加载失败</h2>
+          <p class="mt-2 text-xs leading-relaxed text-slate-500">{{ farmError }}</p>
+          <button @click="retryFarm3D" class="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700">重新加载</button>
+        </div>
+      </div>
+
+      <div ref="farmTooltip" class="farm-tooltip" hidden></div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 模块 3：待办调度模式 (Todos 看板 / 列表 / 大日历)                          -->
     <!-- ========================================================================= -->
     <div v-else-if="activePrimaryModule === 'todos'" class="flex-1 flex flex-col h-full overflow-hidden">
 
@@ -2481,7 +2594,7 @@
     alert('本地未找到 Vue 3 运行时，请确认同目录下存在 vue.global.prod.js 文件！');
   }
 
-  const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+  const { createApp, ref, computed, watch, nextTick, onMounted, onUnmounted } = Vue;
 
   function getFormattedDate(offsetDays = 0) {
     const d = new Date();
@@ -2740,6 +2853,12 @@
     setup() {
       // 默认首页为工作台 (workbench)
       const activePrimaryModule = ref('workbench');
+      const farmCanvasHost = ref(null);
+      const farmTooltip = ref(null);
+      const farmLoading = ref(true);
+      const farmError = ref('');
+      let farmController = null;
+      let farmModulePromise = null;
       const currentViewMode = ref('kanban'); // kanban / list / calendar
       const clockNow = ref(new Date());
       const currentDateText = computed(() => new Intl.DateTimeFormat('zh-CN', {
@@ -3138,6 +3257,30 @@
       }
 
       const kanbanColumns = ref(loadSavedKanbanColumns());
+
+      function getFarmStatusKind(task) {
+        const value = String(task?.status || '').toLowerCase();
+        const status = kanbanColumns.value.find(item => item.id === task?.status);
+        const semantic = String(status?.kind || status?.semantic || status?.type || '').toLowerCase();
+        const combined = `${semantic} ${value}`;
+        if (/done|complete|completed|finish|closed/.test(combined)) return 'done';
+        if (/review|accept|verify|approval|验收|确认/.test(combined)) return 'review';
+        if (/progress|active|doing|busy|进行/.test(combined)) return 'active';
+        return 'todo';
+      }
+
+      const farmSummary = computed(() => {
+        const result = { inbox: 0, scheduled: 0, active: 0, review: 0, done: 0 };
+        tasks.value.forEach(task => {
+          const kind = getFarmStatusKind(task);
+          if (kind === 'done') result.done += 1;
+          else if (kind === 'review') result.review += 1;
+          else if (kind === 'active') result.active += 1;
+          else if (task.dueDate) result.scheduled += 1;
+          else result.inbox += 1;
+        });
+        return result;
+      });
 
       function saveKanbanColumns() {
         saveData();
@@ -3841,6 +3984,55 @@ Please navigate to the Project Path specified above, analyze the current workspa
         agents.value = [agent];
       }
 
+      function syncFarm3D() {
+        farmController?.update({
+          tasks: tasks.value,
+          statuses: kanbanColumns.value,
+          agents: agents.value
+        });
+      }
+
+      async function ensureFarm3D() {
+        if (activePrimaryModule.value !== 'farm' || farmController || !farmCanvasHost.value) return;
+        farmLoading.value = true;
+        farmError.value = '';
+        try {
+          farmModulePromise ||= import('/farm3d.js?v=0.2.0');
+          const { createAgentFarm3D } = await farmModulePromise;
+          if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
+          farmController = createAgentFarm3D({
+            container: farmCanvasHost.value,
+            tooltip: farmTooltip.value,
+            onTaskOpen: task => openDetailDrawer(task),
+            onReady: () => {
+              farmLoading.value = false;
+              syncFarm3D();
+            },
+            onError: error => {
+              farmLoading.value = false;
+              farmError.value = error?.message || '无法读取 3D 模型，请检查服务是否正常。';
+            }
+          });
+          syncFarm3D();
+        } catch (error) {
+          farmLoading.value = false;
+          farmError.value = error?.message || String(error);
+          farmModulePromise = null;
+        }
+      }
+
+      function resetFarmCamera() {
+        farmController?.resetCamera();
+      }
+
+      async function retryFarm3D() {
+        farmController?.dispose();
+        farmController = null;
+        farmModulePromise = null;
+        await nextTick();
+        await ensureFarm3D();
+      }
+
       async function fetchCodexStatus(force = false, notify = false) {
         isRefreshingAll.value = true;
         agents.value.forEach(a => a.isLoadingQuota = true);
@@ -4050,10 +4242,24 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       function switchModule(mod) {
         activePrimaryModule.value = mod;
-        if (mod !== 'todos' && mod !== 'workbench') {
+        if (mod !== 'todos' && mod !== 'workbench' && mod !== 'farm') {
           showToast(`已切换至 [${mod}] 预留扩展模块`);
         }
       }
+
+      watch(activePrimaryModule, async (module, previousModule) => {
+        if (previousModule === 'farm' && module !== 'farm') {
+          farmController?.dispose();
+          farmController = null;
+          farmLoading.value = true;
+        }
+        if (module === 'farm') {
+          await nextTick();
+          await ensureFarm3D();
+        }
+      });
+
+      watch([tasks, kanbanColumns, agents], () => syncFarm3D());
 
       let todoPollTimer = null;
       let codexPollTimer = null;
@@ -4099,6 +4305,8 @@ Please navigate to the Project Path specified above, analyze the current workspa
       });
 
       onUnmounted(() => {
+        farmController?.dispose();
+        farmController = null;
         if (clockTimer) window.clearInterval(clockTimer);
         if (todoPollTimer) window.clearInterval(todoPollTimer);
         if (codexPollTimer) window.clearInterval(codexPollTimer);
@@ -4108,6 +4316,13 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       return {
         activePrimaryModule,
+        farmCanvasHost,
+        farmTooltip,
+        farmLoading,
+        farmError,
+        farmSummary,
+        resetFarmCamera,
+        retryFarm3D,
         currentViewMode,
         currentDateText,
         currentWeekdayText,

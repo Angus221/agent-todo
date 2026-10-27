@@ -14,6 +14,8 @@
 - 固定使用 `http://127.0.0.1:8021/`，首次操作会自动启动并打开工作台；服务已运行时不会重复打开浏览器页面。
 - 页面可见时每 5 秒同步待办与 Codex 活动，重新获得焦点时立即刷新。
 - 工作台只显示一个 Codex 办公位，并在办公位右侧逐行展示当前并行任务；底部集中显示本周待办。
+- 提供独立 3D 任务农场：货架承接未排期待办，左田显示已排期，中田显示进行中与待验收，右田显示已完成。
+- Codex 工作时人物进入田地执行挖掘动画，空闲后回到椅子休息；悬浮作物可看标题，点击可直接打开待办详情。
 - 进行中的任务显示蓝色流光，待用户确认显示橙色，已完成未读显示绿色。
 - 从本地 Codex `app-server` 读取额度，并结合本地会话事件展示状态。
 - Windows、macOS 和 Linux 均可使用，无第三方 npm 运行时依赖。
@@ -29,6 +31,10 @@
 ### 待办看板
 
 ![Agent Todo 待办看板](assets/screenshots/todo-board.png)
+
+### 3D 任务农场
+
+![Agent Todo 3D 任务农场](assets/web/models/farm-browser.png)
 
 ## 环境要求
 
@@ -72,6 +78,7 @@ git clone https://github.com/Angus221/agent-todo.git ~/.codex/skills/agent-todo
 - “完成 0007，并记录处理结果。”
 - “打开 Agent Todo 看板。”
 - “查看当前 Codex 额度和正在处理的任务。”
+- “打开 3D 任务农场。”
 
 技能会在执行待办命令前检查网页服务。如果服务尚未运行，会在 `127.0.0.1:8021` 自动启动并打开浏览器；已经运行时既不会重复启动，也不会重复打开浏览器页面。
 
@@ -111,7 +118,8 @@ agent-todo/
 ├── agents/openai.yaml       # 技能界面元数据
 ├── assets/
 │   ├── screenshots/         # README 界面截图
-│   └── web/                 # Vue 3 工作台
+│   ├── blender/             # 3D 农场 Blender 源工程
+│   └── web/                 # Vue 3 工作台、Three.js 运行时与 GLB 场景
 ├── data/                    # 本地 SQLite 数据（不提交）
 ├── references/              # 架构、数据库与 API 说明
 ├── scripts/
@@ -136,7 +144,7 @@ node scripts/server.ts
 
 Codex 使用量与本地会话扫描思路参考了 MIT 许可的 [itvincent-git/codex-usage-desktop](https://github.com/itvincent-git/codex-usage-desktop)。本项目的 TypeScript 集成为独立实现。
 
-网页端随仓库分发 Vue 3 与 Marked 的浏览器构建，分别遵循其原始开源许可证。
+网页端随仓库分发 Vue 3、Marked 与 Three.js 的浏览器构建，分别遵循其原始开源许可证。
 
 ## 许可证
 

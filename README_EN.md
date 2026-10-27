@@ -14,6 +14,8 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 - Use the fixed local address `http://127.0.0.1:8021/`; the first operation starts and opens the dashboard automatically, while a running service does not open another browser tab.
 - Sync todos and Codex activity every five seconds while visible, with an immediate refresh when the page regains focus.
 - Show one Codex workstation with a row for every current parallel task, plus a weekly todo board below it.
+- Provide a dedicated 3D task farm: the stall holds unscheduled tasks, the left field holds scheduled tasks, the middle field holds active/review tasks, and the right field holds completed tasks.
+- Move the character into the field with a digging animation while Codex is working, and back to the chair while idle. Hover crops for titles and click them to open todo details.
 - Render running tasks with a blue light stream, user-confirmation waits in orange, and completed unread tasks in green.
 - Read quota from the local Codex `app-server` and infer activity from local session events.
 - Run on Windows, macOS, and Linux without third-party npm runtime dependencies.
@@ -29,6 +31,10 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 ### Todo board
 
 ![Agent Todo todo board](assets/screenshots/todo-board.png)
+
+### 3D task farm
+
+![Agent Todo 3D task farm](assets/web/models/farm-browser.png)
 
 ## Requirements
 
@@ -72,6 +78,7 @@ After installation, ask Codex things like:
 - “Complete 0007 and save the result summary.”
 - “Open the Agent Todo dashboard.”
 - “Show my current Codex quota and active tasks.”
+- “Open the 3D task farm.”
 
 Before any todo command, the skill checks the web service. If it is not running, the CLI starts it on `127.0.0.1:8021` and opens the browser. If it is already running, the CLI neither starts another process nor opens another browser tab.
 
@@ -111,7 +118,8 @@ agent-todo/
 ├── agents/openai.yaml       # Skill UI metadata
 ├── assets/
 │   ├── screenshots/         # README screenshots
-│   └── web/                 # Vue 3 dashboard
+│   ├── blender/             # Blender source for the 3D farm
+│   └── web/                 # Vue 3 dashboard, Three.js runtime, and GLB scene
 ├── data/                    # Local SQLite data (not committed)
 ├── references/              # Architecture, database, and API notes
 ├── scripts/
@@ -136,7 +144,7 @@ Validate the skill structure with Codex's bundled `skill-creator/scripts/quick_v
 
 The quota and local session-scanning approach was informed by the MIT-licensed [itvincent-git/codex-usage-desktop](https://github.com/itvincent-git/codex-usage-desktop). This repository contains an independent TypeScript implementation.
 
-The browser assets include builds of Vue 3 and Marked under their original open-source licenses.
+The browser assets include builds of Vue 3, Marked, and Three.js under their original open-source licenses.
 
 ## License
 

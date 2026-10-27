@@ -3,6 +3,7 @@
 The skill is intentionally local-first:
 
 - `assets/web/` contains the user's Vue 3 demo and its vendored browser libraries. The original layout and CSS are preserved; data access is replaced with the local API.
+- `assets/blender/agent-farm.blend` is the editable source scene for the 3D task farm. `assets/web/models/agent-farm.glb` is its browser-ready export, while `assets/web/farm3d.js` maps live todos and Codex state onto named scene nodes.
 - `scripts/server.ts` is the loopback HTTP and JSON API server.
 - `scripts/cli.ts` and platform wrappers are the stable skill interface.
 - `scripts/lib/db.ts` owns SQLite validation, migrations, code allocation, and optimistic concurrency.
@@ -11,6 +12,8 @@ The skill is intentionally local-first:
 The dashboard always binds to `127.0.0.1:8021`. Every CLI operation probes `/api/health` first; when the Agent Todo service is absent, the CLI starts it and opens the dashboard before continuing. If the service is already running, it neither launches another process nor opens another browser tab.
 
 The visible dashboard polls todos and Codex activity every five seconds and refreshes immediately on focus. Full Codex quota and thread metadata remain cached for 15 seconds; unchanged session files reuse parsed activity facts, keeping the faster UI cadence lightweight.
+
+The 3D farm is loaded only when the user opens the farm module. It reuses the dashboard's existing five-second data snapshots and does not redownload the GLB during polling. Named nodes (`InboxSlot_*`, `Cell_Scheduled_*`, `Cell_Active_*`, and `Cell_Done_*`) provide deterministic task placement. The `AgentCharacter` armature contains `Dig` and `Sit` clips selected from the current Codex state.
 
 The Codex integration was informed by the MIT-licensed [itvincent-git/codex-usage-desktop](https://github.com/itvincent-git/codex-usage-desktop), especially its local-first session scanning and Codex `app-server` quota fallback. This implementation is original TypeScript code and does not copy its Rust modules.
 
