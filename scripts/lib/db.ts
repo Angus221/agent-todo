@@ -183,6 +183,16 @@ export class TodoStore {
 
   close() { this.db.close(); }
 
+  getSetting(key: string, fallback: any = null) {
+    const row=this.db.prepare('SELECT value FROM meta WHERE key=?').get(`setting:${key}`) as any;
+    return parseJson(row?.value,fallback);
+  }
+
+  setSetting(key: string, value: unknown) {
+    this.db.prepare('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
+      .run(`setting:${key}`,JSON.stringify(value));
+  }
+
   board() {
     const statuses = this.db.prepare('SELECT * FROM statuses ORDER BY position, id').all().map((row: any) => ({
       id: row.id,

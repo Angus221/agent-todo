@@ -531,6 +531,7 @@
     .farm-stage {
       background: linear-gradient(180deg, #cfeaf7 0%, #eaf6ec 58%, #d8edc7 100%);
     }
+    .farm-stage label:focus-within { outline: 2px solid #65a30d; outline-offset: 3px; }
     .farm-stage canvas {
       display: block;
       width: 100%;
@@ -1691,6 +1692,7 @@
         </div>
 
         <div class="farm-hud-panel rounded-xl p-1.5 pointer-events-auto">
+          <button type="button" @click="openFarmConfig" class="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-white focus-visible:ring-2 focus-visible:ring-lime-500">环境配置</button>
           <button
             type="button"
             @click="resetFarmCamera"
@@ -1701,7 +1703,20 @@
         </div>
       </header>
 
-      <div class="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/70 bg-white/78 px-4 py-2 text-[10px] font-medium text-slate-600 shadow-lg backdrop-blur-md pointer-events-none">
+      <div class="absolute top-32 left-6 z-10 rounded-full bg-white/80 px-3 py-1.5 text-[11px] text-slate-600 backdrop-blur" :title="farmWeather?.fetchedAt ? '天气更新：' + new Date(farmWeather.fetchedAt).toLocaleString('zh-CN') : '正在获取实时天气'">{{ farmWeatherText }}</div>
+      <div v-if="showFarmConfig" class="absolute inset-0 z-40 grid place-items-center bg-slate-900/30 p-5 backdrop-blur-sm" @click.self="showFarmConfig=false" @keydown.esc="showFarmConfig=false">
+        <form @submit.prevent="saveFarmConfig" @keydown.tab="trapFarmConfigFocus" role="dialog" aria-modal="true" aria-labelledby="farm-config-title" class="w-full max-w-sm rounded-2xl border border-white bg-[#fffdf4] p-6 shadow-2xl space-y-5">
+          <div class="flex justify-between items-center"><h2 id="farm-config-title" class="font-bold text-slate-800">农场环境</h2><button type="button" @click="showFarmConfig=false" aria-label="关闭环境配置" class="px-2 py-1">×</button></div>
+          <label class="block text-xs text-slate-600">天气城市<input v-model="farmConfig.city" required minlength="2" maxlength="80" class="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm" placeholder="城市名，例如：济南" /></label>
+          <fieldset><legend class="text-xs text-slate-600 mb-2">时间</legend><div class="grid grid-cols-4 gap-2"><label v-for="item in [{id:'auto',name:'跟随时间'},{id:'day',name:'白天'},{id:'sunset',name:'日落'},{id:'night',name:'夜晚'}]" :key="item.id" class="cursor-pointer rounded-lg border px-1 py-2 text-center text-xs" :class="farmConfig.timeMode===item.id?'border-lime-600 bg-lime-100 text-lime-900':'border-slate-200 bg-white'"><input type="radio" class="sr-only" v-model="farmConfig.timeMode" :value="item.id" name="farm-time" />{{item.name}}</label></div></fieldset>
+          <fieldset><legend class="text-xs text-slate-600 mb-2">天气</legend><div class="grid grid-cols-5 gap-1.5"><label v-for="item in [{id:'auto',name:'实时'},{id:'clear',name:'晴'},{id:'cloudy',name:'阴'},{id:'rain',name:'雨'},{id:'snow',name:'雪'}]" :key="item.id" class="cursor-pointer rounded-lg border px-1 py-2 text-center text-xs" :class="farmConfig.weatherMode===item.id?'border-lime-600 bg-lime-100 text-lime-900':'border-slate-200 bg-white'"><input type="radio" class="sr-only" v-model="farmConfig.weatherMode" :value="item.id" name="farm-weather" />{{item.name}}</label></div></fieldset>
+          <p class="text-[11px] leading-relaxed text-slate-500">自动模式跟随城市当地时间、日出日落和实时天气。选择固定时段或天气可预览环境效果。</p>
+          <p v-if="farmConfigError" role="alert" class="text-xs text-red-700">{{farmConfigError}}</p>
+          <div class="flex justify-between items-center"><a href="https://open-meteo.com/" target="_blank" rel="noopener" class="text-[10px] text-slate-500 underline">天气数据 Open-Meteo</a><button type="submit" :disabled="farmConfigSaving" class="rounded-lg bg-lime-700 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{{farmConfigSaving?'保存中…':'保存配置'}}</button></div>
+        </form>
+      </div>
+
+      <div class="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-[10px] font-medium text-slate-700 shadow-lg backdrop-blur-md pointer-events-none">
         货架＝未排期 · 左田＝已排期 · 中田＝进行中/待验收 · 右田＝已完成
       </div>
 
@@ -2866,6 +2881,18 @@
       const farmTooltip = ref(null);
       const farmLoading = ref(true);
       const farmError = ref('');
+      const showFarmConfig=ref(false);
+      const farmConfig=ref({city:'济南',timeMode:'auto',weatherMode:'auto'});
+      const farmConfigError=ref('');
+      const farmConfigSaving=ref(false);
+      const farmWeather=ref(null);
+      const farmWeatherText=computed(()=>{
+        const data=farmWeather.value;
+        if(!data) return '济南 · 正在同步天气';
+        const preview=Boolean(data.settings && (data.settings.timeMode!=='auto' || data.settings.weatherMode!=='auto'));
+        const detail=data.available ? `${data.description || ''} · ${Math.round(data.current.temperature_2m)}°C` : '天气暂不可用';
+        return `${data.settings?.city || '济南'} · ${detail} · ${preview?'环境预览':data.stale?'上次天气':'实时天气'}`;
+      });
       let farmController = null;
       let farmModulePromise = null;
       const currentViewMode = ref('kanban'); // kanban / list / calendar
@@ -4001,18 +4028,42 @@ Please navigate to the Project Path specified above, analyze the current workspa
         });
       }
 
+      async function openFarmConfig() {
+        showFarmConfig.value=true;farmConfigError.value='';
+        await nextTick();document.querySelector('[aria-labelledby="farm-config-title"] input')?.focus();
+        try {const result=await fetch('/api/farm/environment').then(r=>r.json());if(!result.ok)throw new Error(result.error);farmConfig.value={...result.settings};}
+        catch(error){farmConfigError.value=error.message || '配置读取失败';}
+      }
+
+      function trapFarmConfigFocus(event) {
+        const controls=event.currentTarget.querySelectorAll('button:not([disabled]), input, a[href]');
+        const first=controls[0],last=controls[controls.length-1];
+        if(event.shiftKey && document.activeElement===first){event.preventDefault();last?.focus();}
+        else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first?.focus();}
+      }
+
+      async function saveFarmConfig() {
+        farmConfigSaving.value=true;farmConfigError.value='';
+        try {
+          const response=await fetch('/api/farm/environment',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(farmConfig.value)});
+          const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error || '保存失败');
+          farmConfig.value={...result.settings};showFarmConfig.value=false;await farmController?.refreshWeather();
+        } catch(error){farmConfigError.value=error.message;} finally {farmConfigSaving.value=false;}
+      }
+
       async function ensureFarm3D() {
         if (activePrimaryModule.value !== 'farm' || farmController || !farmCanvasHost.value) return;
         farmLoading.value = true;
         farmError.value = '';
         try {
-          farmModulePromise ||= import('/farm3d.js?v=0.3.4');
+          farmModulePromise ||= import('/farm3d.js?v=0.4.0');
           const { createAgentFarm3D } = await farmModulePromise;
           if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
           farmController = createAgentFarm3D({
             container: farmCanvasHost.value,
             tooltip: farmTooltip.value,
             onTaskOpen: task => openDetailDrawer(task),
+            onWeather: snapshot => {farmWeather.value=snapshot;},
             onReady: () => {
               farmLoading.value = false;
               syncFarm3D();
@@ -4329,6 +4380,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmTooltip,
         farmLoading,
         farmError,
+        showFarmConfig,farmConfig,farmConfigError,farmConfigSaving,farmWeather,farmWeatherText,openFarmConfig,saveFarmConfig,trapFarmConfigFocus,
         farmSummary,
         resetFarmCamera,
         retryFarm3D,

@@ -42,6 +42,8 @@ Three short access paths connect the main road to the plots. Foot placement foll
 
 Cells fill from the front-right corner toward the rear, then continue one column to the left. Titles lie parallel to the soil at the front edge of each cell and follow the camera perspective.
 
+The farm blends into a surrounding meadow and distant hills beneath a sky with sun, clouds, moon, and stars. Open **Environment settings** at the top right to change the city (Jinan by default), follow local time or preview day/sunset/night, and select live/clear/cloudy/rain/snow weather. Preferences persist in SQLite. Sunrise/sunset drive lighting, cloud cover and wind influence clouds, and precipitation drives rain/snow. Live weather comes from [Open-Meteo](https://open-meteo.com/) and refreshes every 15 minutes; offline cached data is explicitly marked and does not affect local todos.
+
 ![Agent Todo 3D task farm](assets/web/models/farm-browser.png)
 
 ## Requirements

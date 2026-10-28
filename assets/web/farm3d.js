@@ -1,6 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
+import { createFarmEnvironment } from './farm-environment.js';
 
 const SLOT_PREFIXES = ['Cell_Scheduled_', 'Cell_Active_', 'Cell_Done_', 'InboxSlot_'];
 
@@ -63,15 +64,15 @@ function makeMarker(color) {
   return ring;
 }
 
-export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpen, onReady, onError }) {
+export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpen, onWeather, onReady, onError }) {
   if (!container) throw new Error('3D 农场容器不存在');
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xcfe9f5);
-  scene.fog = new THREE.Fog(0xcfe9f5, 34, 62);
+  scene.fog = new THREE.Fog(0xcfe9f5, 65, 180);
 
-  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 120);
-  const defaultCameraPosition = new THREE.Vector3(18.5, 19.5, 24.5);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+  const defaultCameraPosition = new THREE.Vector3(18.5, 17.5, 26.5);
   const defaultTarget = new THREE.Vector3(0, 0.8, 0.2);
   camera.position.copy(defaultCameraPosition);
 
@@ -124,6 +125,8 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   const groundOrigin = new THREE.Vector3();
   const down = new THREE.Vector3(0,-1,0);
   const groundMeshes = [];
+  const environment=createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather});
+  groundMeshes.push(...environment.groundSurfaces);
   let mixer = null;
   let activeAction = null;
   let previewTime = -1;
@@ -593,6 +596,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     mixer?.update(delta);
     controls.update();
     camera.updateMatrixWorld(true);
+    environment.tick(delta);
     tickCharacter(delta);
     // Tripo stores locomotion in Hip (in a rotated rig), not only BoneRoot.
     // Cancel world-horizontal hip motion after mixing, including crossfades,
@@ -619,6 +623,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
     controls.dispose();
+    environment.dispose();
     mixer?.stopAllAction();
     labels.remove();
     scene.traverse(object => {
@@ -634,5 +639,5 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
   }
 
-  return { update, resetCamera, dispose };
+  return { update, resetCamera, dispose, refreshWeather:environment.refresh };
 }

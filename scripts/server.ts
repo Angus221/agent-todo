@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { TodoStore } from './lib/db.ts';
 import { fetchCodexSnapshot } from './lib/codex.ts';
 import { DASHBOARD_HOST, DASHBOARD_PORT, DASHBOARD_URL } from './lib/config.ts';
+import { environmentSettings, saveEnvironment, farmWeather } from './lib/weather.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const webRoot = resolve(root, 'assets/web');
@@ -54,6 +55,9 @@ async function api(req: IncomingMessage, res: ServerResponse, url: URL) {
   const method = req.method || 'GET';
   const path = url.pathname;
   if (path === '/api/health' && method === 'GET') return json(res, 200, { ok: true, service: 'agent-todo', database: store.path });
+  if(path==='/api/farm/environment' && method==='GET') return json(res,200,{ok:true,settings:environmentSettings(store)});
+  if(path==='/api/farm/environment' && method==='PUT') return json(res,200,{ok:true,settings:await saveEnvironment(store,await readJson(req))});
+  if(path==='/api/farm/weather' && method==='GET') return json(res,200,{ok:true,...await farmWeather(store)});
   if (path === '/api/state' && method === 'GET') {
     const board = store.board();
     return json(res, 200, { ok: true, tasks: store.list(), categories: board.categories, statuses: board.statuses });

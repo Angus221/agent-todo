@@ -2,6 +2,8 @@
 
 The skill is intentionally local-first:
 
+The farm environment is composed by `assets/web/farm-environment.js`: surrounding ground/skirt, distant hills, sky, clouds, celestial bodies, night lighting, and precipitation. `/api/farm/environment` reads/writes validated preferences through SQLite meta settings; `/api/farm/weather` proxies Open-Meteo and caches observations for 15 minutes in SQLite. The default city is Jinan; alternate cities resolve through Open-Meteo geocoding. Weather is fetched only for the farm and never sends todo/thread data. Failed requests retain matching-city cached observations with a stale flag. The client distinguishes environment previews from live weather and follows the selected city's timezone and sunrise/sunset in automatic mode.
+
 - `assets/web/` contains the user's Vue 3 demo and its vendored browser libraries. The original layout and CSS are preserved; data access is replaced with the local API.
 - `assets/blender/agent-farm.blend` is the editable source scene for the 3D task farm. `assets/web/models/agent-farm.glb` contains the browser-ready terrain, task slots, character rig, and animations. The cottage, chair, and stall are loaded from separate UV-preserving `*-clean.glb` assets so their original texture coordinates survive web optimization. `assets/web/farm3d.js` composes those assets and maps live todos and Codex state onto named scene nodes.
 - `scripts/server.ts` is the loopback HTTP and JSON API server.
