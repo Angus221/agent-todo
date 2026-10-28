@@ -3,7 +3,29 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from '../../assets/web/vendor/three.module.js';
 import { GLTFLoader } from '../../assets/web/vendor/GLTFLoader.js';
-import { stabilizeCharacterMotion, groundCharacterFeet } from '../../assets/web/farm3d.js';
+import { stabilizeCharacterMotion, groundCharacterFeet, sortFieldSlots, groundLabelTransform } from '../../assets/web/farm3d.js';
+
+test('plots number from front-right to back before moving one column left',()=>{
+  const slots=[];
+  for(const x of [-1,0,1,2]) for(const z of [0,1,2]) {
+    const slot=new THREE.Group(); slot.position.set(x,0,z); slots.push(slot);
+  }
+  const ordered=sortFieldSlots(slots.reverse());
+  assert.deepEqual(ordered.slice(0,6).map(slot=>[slot.position.x,slot.position.z]),[[2,2],[2,1],[2,0],[1,2],[1,1],[1,0]]);
+});
+
+test('ground title corners follow the same perspective plane as soil',()=>{
+  const camera=new THREE.PerspectiveCamera(38,1280/720,0.1,120);
+  camera.position.set(18.5,19.5,24.5); camera.lookAt(0,0.8,0.2); camera.updateMatrixWorld(true);
+  const center=new THREE.Vector3(1,0.7,1);
+  const transform=new THREE.Matrix4().fromArray(groundLabelTransform(camera,center,110,21,1280,720));
+  for(const [x,y] of [[0,0],[110,0],[0,21],[110,21],[55,10.5]]) {
+    const css=new THREE.Vector4(x,y,0,1).applyMatrix4(transform);
+    const world=new THREE.Vector3(center.x-0.56+x/110*1.12,center.y,center.z-0.13+y/21*0.26).project(camera);
+    assert(Math.abs(css.x/css.w-(world.x+1)*640)<1e-6);
+    assert(Math.abs(css.y/css.w-(1-world.y)*360)<1e-6);
+  }
+});
 
 // Keep the actual skeleton and animation buffers, but omit rendering resources.
 // This exercises the shipped clips and Three.js mixer without a browser/GPU.

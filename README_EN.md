@@ -40,6 +40,8 @@ Each session owns a distinct stable cell. The farmer randomly visits concurrent 
 
 Three short access paths connect the main road to the plots. Foot placement follows the actual grass, road, and soil surfaces.
 
+Cells fill from the front-right corner toward the rear, then continue one column to the left. Titles lie parallel to the soil at the front edge of each cell and follow the camera perspective.
+
 ![Agent Todo 3D task farm](assets/web/models/farm-browser.png)
 
 ## Requirements

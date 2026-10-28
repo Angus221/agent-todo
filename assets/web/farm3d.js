@@ -24,6 +24,24 @@ function naturalSort(items) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
+export function sortFieldSlots(items) {
+  const positions=new Map(items.map(item=>[item,item.getWorldPosition(new THREE.Vector3())]));
+  return [...items].sort((a,b)=>{
+    const left=positions.get(a),right=positions.get(b);
+    return Math.abs(right.x-left.x)>0.0001 ? right.x-left.x : right.z-left.z;
+  });
+}
+
+export function groundLabelTransform(camera, center, width, height, viewportWidth, viewportHeight) {
+  const projection=new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);
+  const origin=new THREE.Vector4(center.x-0.56,center.y,center.z-0.13,1).applyMatrix4(projection);
+  const horizontal=new THREE.Vector4(1.12/width,0,0,0).applyMatrix4(projection);
+  const vertical=new THREE.Vector4(0,0,0.26/height,0).applyMatrix4(projection);
+  const screen=vector=>[(vector.x+vector.w)*viewportWidth/2,(-vector.y+vector.w)*viewportHeight/2,vector.w];
+  const o=screen(origin),x=screen(horizontal),y=screen(vertical),w=o[2];
+  return [x[0]/w,x[1]/w,0,x[2]/w,y[0]/w,y[1]/w,0,y[2]/w,0,0,1,0,o[0]/w,o[1]/w,0,1];
+}
+
 function statusKind(statuses, statusId) {
   const value = String(statusId || '').toLowerCase();
   const status = (statuses || []).find(item => item.id === statusId);
@@ -400,8 +418,10 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       plant.root.scale.set(growth*0.4, growth*(completed ? 1.35 : 0.42), growth*0.4);
       plant.root.rotation.z=isProblem(task) ? Math.sin(elapsed*5)*0.14 : 0;
       // Ground label sits in front of the plant (+Z), away from the farmer's head.
-      const position=plant.root.position.clone().add(new THREE.Vector3(0,0.04,0.55)).project(camera);
-      plant.button.style.transform=`translate(-50%, -100%) translate(${(position.x*.5+.5)*container.clientWidth}px,${(-position.y*.5+.5)*container.clientHeight}px)`;
+      const center=plant.root.position.clone().add(new THREE.Vector3(0,0.04,0.55));
+      const position=center.clone().project(camera);
+      const transform=groundLabelTransform(camera,center,plant.button.offsetWidth || 100,plant.button.offsetHeight || 20,container.clientWidth,container.clientHeight);
+      plant.button.style.transform=`matrix3d(${transform.join(',')})`;
       plant.button.hidden=position.z>1 || plant.age<0.1;
       plant.button.dataset.phase=phase;
     }
@@ -517,7 +537,10 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       else if (object.name.startsWith('Cell_Done_')) slotGroups.done.push(object);
       else if (object.name.startsWith('InboxSlot_')) slotGroups.inbox.push(object);
     });
-    Object.keys(slotGroups).forEach(key => { slotGroups[key] = naturalSort(slotGroups[key]); });
+    Object.keys(slotGroups).forEach(key => {
+      slotGroups[key]=key==='inbox' ? naturalSort(slotGroups[key]) : sortFieldSlots(slotGroups[key]);
+      slotGroups[key].forEach((slot,index)=>{slot.userData.cellNumber=index+1;});
+    });
     // Short access lanes connect the main road to the back edge of each plot.
     const laneMaterial=new THREE.MeshStandardMaterial({color:0xc8b88d,roughness:1});
     for(const x of [-5.7,0,5.7]) {
@@ -568,6 +591,8 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     frameId = requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.05);
     mixer?.update(delta);
+    controls.update();
+    camera.updateMatrixWorld(true);
     tickCharacter(delta);
     // Tripo stores locomotion in Hip (in a rotated rig), not only BoneRoot.
     // Cancel world-horizontal hip motion after mixing, including crossfades,
@@ -585,7 +610,6 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
         }
       }
     }
-    controls.update();
     renderer.render(scene, camera);
   }
   animate();
