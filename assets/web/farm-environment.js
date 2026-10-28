@@ -56,7 +56,8 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
     hill.scale.set(10+i%4*2,3+i%3,8);root.add(hill);
   }
   const celestialTexture=glowTexture();
-  const solar=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,transparent:true,depthWrite:false,fog:false,toneMapped:false}));solar.scale.set(11,11,1);root.add(solar);
+  const solar=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,transparent:true,depthWrite:false,fog:false,toneMapped:false}));solar.scale.set(2.8,2.8,1);root.add(solar);
+  const sunAnchor=new THREE.Vector3(5.6,7.2,-4.8);
   const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,color:0xc6deff,transparent:true,depthWrite:false,fog:false,toneMapped:false}));moon.scale.set(7,7,1);root.add(moon);
   const porch=new THREE.PointLight(0xffc47a,0,10,2);porch.position.set(5.6,2,-2.7);root.add(porch);
   const stallLamp=new THREE.PointLight(0xffcd90,0,8,2);stallLamp.position.set(-7.5,2,-3.4);root.add(stallLamp);
@@ -103,7 +104,7 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
       precipitation.material.color.set(visual.snow ? 0xffffff : 0xc8def1);
       clouds.forEach((cloud,i)=>{cloud.material.color.set(day>.3 ? visual.rain ? 0x89979f : 0xffffff : 0x627085);cloud.material.opacity=.5+overcast*.4;cloud.visible=i<3+Math.round(overcast*6);});
     }
-    positionInSky(solar,-.6+visual.progress*1.6,.4+Math.sin(visual.progress*Math.PI)*.48,90);
+    solar.position.copy(sunAnchor);
     positionInSky(moon,.65,.85,90);
     stars.position.copy(camera.position);stars.quaternion.copy(camera.quaternion);
     clouds.forEach((cloud,i)=>{const speed=reduced.matches ? 0 : elapsed*(.0008+(snapshot.current?.wind_speed_10m || 5)*.000035);positionInSky(cloud,((i*.7+speed+.3)%2.4)-.9,.8+(i%3)*.06,115+i%3*3);});
@@ -115,5 +116,5 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
     root.traverse(object=>{if(object.geometry)geometries.add(object.geometry);for(const material of (Array.isArray(object.material)?object.material:[object.material]).filter(Boolean)){materials.add(material);if(material.map)textures.add(material.map);}});
     geometries.forEach(item=>item.dispose());materials.forEach(item=>item.dispose());textures.forEach(item=>item.dispose());
   }
-  return {tick,refresh,setWeather,dispose,groundSurfaces:[ground,skirt]};
+  return {tick,refresh,setWeather,dispose,setSunAnchor:position=>sunAnchor.copy(position),groundSurfaces:[ground,skirt]};
 }
