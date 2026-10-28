@@ -4059,7 +4059,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmLoading.value = true;
         farmError.value = '';
         try {
-          farmModulePromise ||= import('/farm3d.js?v=0.4.2');
+          farmModulePromise ||= import('/farm3d.js?v=0.4.3');
           const { createAgentFarm3D } = await farmModulePromise;
           if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
           farmController = createAgentFarm3D({

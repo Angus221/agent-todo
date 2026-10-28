@@ -517,9 +517,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     const house=prepareDecorativeAsset(houseGltf.scene, {
       name: 'FarmHouse', scale: 5.1, x: 5.6, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
     });
-    const houseBounds=new THREE.Box3().setFromObject(house);
-    const houseTop=houseBounds.getCenter(new THREE.Vector3());houseTop.y=houseBounds.max.y+1.9;
-    environment.setSunAnchor(houseTop);
+    environment.setHouse(house);
     prepareDecorativeAsset(chairGltf.scene, {
       name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: -Math.PI / 2, groundY: 0.38
     });

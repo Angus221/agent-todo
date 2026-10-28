@@ -57,11 +57,33 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
   }
   const celestialTexture=glowTexture();
   const solar=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,transparent:true,depthWrite:false,fog:false,toneMapped:false}));solar.scale.set(2.8,2.8,1);root.add(solar);
-  const sunAnchor=new THREE.Vector3(5.6,7.2,-4.8);
+  const sunAnchor=new THREE.Vector3(-5.3,8.7,-1.8);
+  const snowCover={value:0};
+  function setHouse(house) {
+    house.traverse(object=>{
+      if(!object.isMesh)return;
+      const coat=material=>{
+        const coated=material.clone();
+        coated.onBeforeCompile=shader=>{
+          shader.uniforms.farmSnow=snowCover;
+          shader.vertexShader='varying float snowFacing;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nsnowFacing = normalize(mat3(modelMatrix) * normal).y;');
+          shader.fragmentShader='uniform float farmSnow; varying float snowFacing;\n'+shader.fragmentShader.replace('#include <map_fragment>','#include <map_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,vec3(.94,.97,1.),farmSnow*smoothstep(.08,.5,snowFacing));');
+        };
+        coated.customProgramCacheKey=()=> 'farm-snow-coating-v1';
+        return coated;
+      };
+      object.material=Array.isArray(object.material)?object.material.map(coat):coat(object.material);
+    });
+  }
   const moon=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,color:0xc6deff,transparent:true,depthWrite:false,fog:false,toneMapped:false}));moon.scale.set(7,7,1);root.add(moon);
   const porch=new THREE.PointLight(0xffc47a,0,10,2);porch.position.set(5.6,2,-2.7);root.add(porch);
   const stallLamp=new THREE.PointLight(0xffcd90,0,8,2);stallLamp.position.set(-7.5,2,-3.4);root.add(stallLamp);
   const cloudMap=cloudTexture(),clouds=[];
+  const weatherClouds=[0,1].map(()=>{
+    const cloud=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudMap,transparent:true,depthWrite:false,fog:false,toneMapped:false}));
+    cloud.scale.set(3.7,1.85,1);cloud.renderOrder=3;root.add(cloud);return cloud;
+  });
+  const cameraRight=new THREE.Vector3(),cameraUp=new THREE.Vector3(),cameraFront=new THREE.Vector3();
   for(let i=0;i<9;i++) {const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:cloudMap,transparent:true,depthWrite:false,fog:false}));sprite.scale.set(20+i%3*5,10+i%3*2.5,1);root.add(sprite);clouds.push(sprite);}
   const particles=new Float32Array(600*3);
   for(let i=0;i<particles.length;i+=3) {particles[i]=(Math.random()-.5)*40;particles[i+1]=Math.random()*22;particles[i+2]=(Math.random()-.5)*30;}
@@ -99,12 +121,24 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
       sun.position.set(-25+visual.progress*50,8+Math.sin(visual.progress*Math.PI)*22,18);
       renderer.toneMappingExposure=.7+day*.08;
       solar.visible=day>.1&&!visual.rain&&!visual.snow;solar.material.opacity=(1-overcast*.7)*day;solar.material.color.set(visual.twilight>.2 ? 0xffad69 : 0xffdf74);
+      const cloudy=visual.code===2||visual.code===3||overcast>.65;
+      solar.material.opacity=day;
+      snowCover.value=visual.snow?1:0;
+      weatherClouds.forEach((cloud,i)=>{
+        cloud.visible=visual.rain||visual.snow||(cloudy&&i===0);
+        cloud.material.color.set(visual.snow?0xf4f7ff:visual.rain?0x46505e:0x6d7684);
+      });
       moon.visible=day<.3;stars.visible=day<.2;
       precipitation.visible=visual.rain||visual.snow;precipitation.material.size=visual.snow ? .11 : .045;
       precipitation.material.color.set(visual.snow ? 0xffffff : 0xc8def1);
       clouds.forEach((cloud,i)=>{cloud.material.color.set(day>.3 ? visual.rain ? 0x89979f : 0xffffff : 0x627085);cloud.material.opacity=.5+overcast*.4;cloud.visible=i<3+Math.round(overcast*6);});
     }
     solar.position.copy(sunAnchor);
+    cameraRight.set(1,0,0).applyQuaternion(camera.quaternion);cameraUp.set(0,1,0).applyQuaternion(camera.quaternion);cameraFront.set(0,0,1).applyQuaternion(camera.quaternion);
+    weatherClouds.forEach((cloud,i)=>{
+      const covering=visual.rain||visual.snow;
+      cloud.position.copy(sunAnchor).addScaledVector(cameraRight,covering?(i===0?-.65:.65):.55).addScaledVector(cameraUp,covering?(i===0?.25:-.2):-.7).addScaledVector(cameraFront,.4+i*.08);
+    });
     positionInSky(moon,.65,.85,90);
     stars.position.copy(camera.position);stars.quaternion.copy(camera.quaternion);
     clouds.forEach((cloud,i)=>{const speed=reduced.matches ? 0 : elapsed*(.0008+(snapshot.current?.wind_speed_10m || 5)*.000035);positionInSky(cloud,((i*.7+speed+.3)%2.4)-.9,.8+(i%3)*.06,115+i%3*3);});
@@ -116,5 +150,5 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
     root.traverse(object=>{if(object.geometry)geometries.add(object.geometry);for(const material of (Array.isArray(object.material)?object.material:[object.material]).filter(Boolean)){materials.add(material);if(material.map)textures.add(material.map);}});
     geometries.forEach(item=>item.dispose());materials.forEach(item=>item.dispose());textures.forEach(item=>item.dispose());
   }
-  return {tick,refresh,setWeather,dispose,setSunAnchor:position=>sunAnchor.copy(position),groundSurfaces:[ground,skirt]};
+  return {tick,refresh,setWeather,dispose,setHouse,groundSurfaces:[ground,skirt]};
 }

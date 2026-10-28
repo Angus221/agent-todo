@@ -1,6 +1,6 @@
 {
   "name": "agent-todo-skill",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "A local-first SQLite todo skill and Codex activity dashboard.",
   "private": true,
   "type": "module",
