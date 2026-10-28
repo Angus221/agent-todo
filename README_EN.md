@@ -38,6 +38,8 @@ The character uses native Tripo walk, sit, dig, and dance animations. When Codex
 
 Each session owns a distinct stable cell. The farmer randomly visits concurrent unfinished sessions: short plants indicate active work, tall plants indicate completion, and swaying plants indicate approval requests or problems. Walking follows a direct route; sitting, digging, and dancing face the same direction as the house entrance. Ground labels in front of plants show the first ten characters of session titles; hover for the full title and click to open the thread.
 
+Three short access paths connect the main road to the plots. Foot placement follows the actual grass, road, and soil surfaces.
+
 ![Agent Todo 3D task farm](assets/web/models/farm-browser.png)
 
 ## Requirements

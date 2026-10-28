@@ -12,6 +12,14 @@ export function stabilizeCharacterMotion(character, motionAnchor, hipBone, scrat
   motionAnchor.position.set(-scratch.x,0,-scratch.z);
 }
 
+export function groundCharacterFeet(character, motionAnchor, feet, surfaceY, scratch) {
+  character.updateMatrixWorld(true);
+  let lowest=Infinity;
+  for(const foot of feet) {foot.getWorldPosition(scratch); lowest=Math.min(lowest,scratch.y);}
+  // The ankle/toe bones are 0.055 world units above the shoe sole.
+  if(Number.isFinite(lowest)) motionAnchor.position.y+=surfaceY+0.055-lowest;
+}
+
 function naturalSort(items) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
@@ -91,7 +99,13 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   let character = null;
   let motionAnchor = null;
   let hipBone = null;
+  let footBones = [];
   const hipPosition = new THREE.Vector3();
+  const footPosition = new THREE.Vector3();
+  const groundRay = new THREE.Raycaster();
+  const groundOrigin = new THREE.Vector3();
+  const down = new THREE.Vector3(0,-1,0);
+  const groundMeshes = [];
   let mixer = null;
   let activeAction = null;
   let previewTime = -1;
@@ -104,7 +118,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   let switchAfter = 12;
   let elapsed = 0;
   const sessionPlants = new Map();
-  const seat = new THREE.Vector3(0.7, 0.3, -4.02);
+  const seat = new THREE.Vector3(0.7, 0.36, -3.68);
   const labels = document.createElement('div');
   labels.className = 'farm-session-labels';
   container.appendChild(labels);
@@ -478,7 +492,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       name: 'FarmHouse', scale: 5.1, x: 5.6, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
     });
     prepareDecorativeAsset(chairGltf.scene, {
-      name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: -Math.PI / 2, groundY: 0.32
+      name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: -Math.PI / 2, groundY: 0.38
     });
     prepareDecorativeAsset(stallGltf.scene, {
       name: 'TodoInboxStall', scale: 3.5, x: -7.5, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
@@ -493,6 +507,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       if(/^Review(Marker|Bloom|Stem)_/.test(object.name)) {object.visible=false; return;}
       if (object.isLight) object.intensity = 0;
       if (object.isMesh) {
+        if(/^(FarmMeadow|FarmIsland|BackPath|FrontPath|HousePath|Soil_|PlotBase_)/.test(object.name)) groundMeshes.push(object);
         object.castShadow = !/Water|Pond|Path/.test(object.name);
         object.receiveShadow = true;
         interactiveMeshes.push(object);
@@ -503,6 +518,16 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       else if (object.name.startsWith('InboxSlot_')) slotGroups.inbox.push(object);
     });
     Object.keys(slotGroups).forEach(key => { slotGroups[key] = naturalSort(slotGroups[key]); });
+    // Short access lanes connect the main road to the back edge of each plot.
+    const laneMaterial=new THREE.MeshStandardMaterial({color:0xc8b88d,roughness:1});
+    for(const x of [-5.7,0,5.7]) {
+      const lane=new THREE.Mesh(new THREE.BoxGeometry(0.85,0.06,2.3),laneMaterial);
+      lane.name='PlotAccessPath';
+      lane.position.set(x,0.23,-2.5);
+      lane.receiveShadow=true;
+      scene.add(lane);
+      groundMeshes.push(lane);
+    }
     const oldCharacter = farmRoot.getObjectByName('AgentCharacter');
     if(oldCharacter) {
       oldCharacter.traverse(mesh=>{const index=interactiveMeshes.indexOf(mesh); if(index>=0) interactiveMeshes.splice(index,1);});
@@ -520,6 +545,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       motionAnchor.add(model);
       character.add(motionAnchor);
       hipBone=model.getObjectByName('Hip');
+      footBones=['L_Foot','R_Foot','L_ToeBase','R_ToeBase'].map(name=>model.getObjectByName(name)).filter(Boolean);
       character.position.copy(seat);
       scene.add(character);
       character.userData.clips=animated.animations;
@@ -548,6 +574,16 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     // so looping clips cannot move the visible actor away from the route.
     if(motionAnchor && hipBone) {
       stabilizeCharacterMotion(character,motionAnchor,hipBone,hipPosition);
+      if(['walking','returning','roadside','dancing'].includes(phase) && footBones.length) {
+        // Sample only walkable surfaces: this changes height, never the X/Z route.
+        scene.updateMatrixWorld(true);
+        groundOrigin.set(character.position.x,10,character.position.z);
+        groundRay.set(groundOrigin,down);
+        const surface=groundRay.intersectObjects(groundMeshes,false)[0];
+        if(surface) {
+          groundCharacterFeet(character,motionAnchor,footBones,surface.point.y,footPosition);
+        }
+      }
     }
     controls.update();
     renderer.render(scene, camera);

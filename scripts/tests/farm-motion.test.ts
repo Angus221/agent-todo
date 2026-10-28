@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import * as THREE from '../../assets/web/vendor/three.module.js';
 import { GLTFLoader } from '../../assets/web/vendor/GLTFLoader.js';
-import { stabilizeCharacterMotion } from '../../assets/web/farm3d.js';
+import { stabilizeCharacterMotion, groundCharacterFeet } from '../../assets/web/farm3d.js';
 
 // Keep the actual skeleton and animation buffers, but omit rendering resources.
 // This exercises the shipped clips and Three.js mixer without a browser/GPU.
@@ -34,6 +34,7 @@ test('native Hip locomotion is cancelled through walk loops and pose crossfades'
   gltf.scene.rotation.y=-Math.PI/2;
   anchor.add(gltf.scene); actor.add(anchor);
   const hip=gltf.scene.getObjectByName('Hip');
+  const feet=['L_Foot','R_Foot','L_ToeBase','R_ToeBase'].map(name=>gltf.scene.getObjectByName(name));
   assert(hip);
   const mixer=new THREE.AnimationMixer(actor);
   const scratch=new THREE.Vector3();
@@ -58,7 +59,13 @@ test('native Hip locomotion is cancelled through walk loops and pose crossfades'
       actor.rotation.y=stage===2 ? Math.PI : 0;
       mixer.update(1/60);
       stabilizeCharacterMotion(actor,anchor,hip,scratch);
+      const surface=[0.18,0.36,0.66][Math.floor(frame/60)%3];
+      if(name==='walk' || name==='dance_05') groundCharacterFeet(actor,anchor,feet,surface,scratch);
       actor.updateMatrixWorld(true); hip.getWorldPosition(world);
+      if(name==='walk' || name==='dance_05') {
+        const lowest=Math.min(...feet.map(foot=>foot.getWorldPosition(new THREE.Vector3()).y));
+        assert(Math.abs(lowest-surface-0.055)<1e-5,`${name}: shoe sole left the ground`);
+      }
       assert(Math.hypot(world.x-actor.position.x,world.z-actor.position.z)<1e-5,`${name}: actor left its route`);
       if(previousWorld) assert(Math.hypot(world.x-previousWorld.x,world.z-previousWorld.z)<0.023,`${name}: visible jump at loop/transition`);
       previousWorld=world.clone();
