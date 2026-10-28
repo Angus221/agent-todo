@@ -84,6 +84,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
   let mixer = null;
   let activeAction = null;
   let currentAgentMode = '';
+  const decorativeAssets = [];
   let disposed = false;
   let frameId = 0;
   const clock = new THREE.Clock();
@@ -189,8 +190,8 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     if (!character || mode === currentAgentMode) return;
     currentAgentMode = mode;
     const working = mode === 'working';
-    character.position.set(working ? 0 : 0.72, working ? 0.28 : 0.44, working ? 0.35 : -4.05);
-    character.rotation.y = working ? 0.2 : -0.2;
+    character.position.set(working ? 0 : 0.72, working ? 0.08 : 0.12, working ? 0.35 : -4.04);
+    character.rotation.y = working ? 0.2 : 0;
     const clipName = working ? 'Dig' : 'Sit';
     const clip = character.userData.clips?.find(item => item.name === clipName);
     if (clip && mixer) {
@@ -244,7 +245,56 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
   }
 
   const loader = new GLTFLoader();
-  loader.load('/models/agent-farm.glb', gltf => {
+
+  function prepareDecorativeAsset(root, { name, scale, x, z, rotationY, groundY }) {
+    root.name = name;
+    root.scale.setScalar(scale);
+    root.rotation.y = rotationY;
+    root.position.set(x, 0, z);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(root);
+    root.position.y += groundY - bounds.min.y;
+    root.traverse(object => {
+      if (!object.isMesh) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.filter(Boolean).forEach(material => {
+        material.transparent = false;
+        material.opacity = 1;
+        material.alphaTest = 0;
+        material.depthWrite = true;
+        material.side = THREE.FrontSide;
+        if (material.map) {
+          material.map.colorSpace = THREE.SRGBColorSpace;
+          material.map.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+        }
+        material.needsUpdate = true;
+      });
+    });
+    decorativeAssets.push(root);
+    scene.add(root);
+    return root;
+  }
+
+  async function loadDecorativeAssets() {
+    const [houseGltf, chairGltf, stallGltf] = await Promise.all([
+      loader.loadAsync('/models/house-clean.glb'),
+      loader.loadAsync('/models/chair-clean.glb'),
+      loader.loadAsync('/models/stall-clean.glb')
+    ]);
+    prepareDecorativeAsset(houseGltf.scene, {
+      name: 'FarmHouse', scale: 5.1, x: 5.6, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
+    });
+    prepareDecorativeAsset(chairGltf.scene, {
+      name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: Math.PI, groundY: 0.16
+    });
+    prepareDecorativeAsset(stallGltf.scene, {
+      name: 'TodoInboxStall', scale: 3.5, x: -7.5, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
+    });
+  }
+
+  loader.load('/models/agent-farm.glb', async gltf => {
     if (disposed) return;
     farmRoot = gltf.scene;
     scene.add(farmRoot);
@@ -266,8 +316,14 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
       character.userData.clips = gltf.animations || [];
       mixer = new THREE.AnimationMixer(character);
     }
-    update(state);
-    if (onReady) onReady();
+    try {
+      await loadDecorativeAssets();
+      update(state);
+      if (onReady) onReady();
+    } catch (error) {
+      console.error('3D farm decorative asset load failed', error);
+      if (onError) onError(error);
+    }
   }, undefined, error => {
     console.error('3D farm load failed', error);
     if (onError) onError(error);

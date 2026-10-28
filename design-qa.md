@@ -2,18 +2,22 @@
 
 final result: passed
 
-## Verified scope
+## Comparison evidence
 
-- Compared the supplied warm farm reference and the live browser implementation side by side at a 1280×720 desktop viewport.
-- Confirmed the intended spatial hierarchy: stall at the far left/top, scheduled field on the left, active/review field in the center, completed field on the right, cottage and rest chair behind the fields.
-- Corrected the initial browser overexposure by disabling the exported Blender light and tuning the Three.js hemisphere light, sun, and tone-mapping exposure.
-- Confirmed live SQLite counts, empty-slot behavior, status-colored rings, hover title/status feedback, and clicking a crop to open the matching todo drawer.
-- Confirmed lazy loading, loading and failure states, camera reset, orbit/zoom controls, and safe teardown when leaving the module.
-- Confirmed the `Dig` and `Sit` animation clips are embedded in the GLB and selected from Codex activity state.
-- Confirmed visible controls have accessible names and keyboard focus styles; reduced-motion behavior remains available for the existing dashboard animations.
+- Source truth: the two user screenshots showing corrupted cottage/stall UVs, a chair intersecting the terrain, a shovel, and incorrect prop placement.
+- Implementation evidence: `assets/web/models/farm-browser.png`, captured from the live `http://127.0.0.1:8021/` farm at a 1280×720 desktop viewport.
+- The source screenshots and final browser capture were inspected together in one composite image.
 
-## Intentional differences
+## Fix history
 
-- The reference image shows every field fully planted. The implementation renders only real todos, so empty cells remain bare soil by design.
-- The live view keeps the dashboard's existing compact left navigation and adds a small translucent farm legend for interaction guidance.
-- The 3D mode is desktop-first, matching the existing dashboard shell. Narrow viewports retain access to the canvas but are not a separate mobile composition.
+- P1 — Cottage and stall textures appeared perforated after destructive mesh decimation. Rebuilt clean browser assets from the original GLBs with UV-preserving mesh optimization; the final capture has continuous walls, roof tiles, timber, and stall shelves.
+- P1 — The rest chair intersected the terrain and faced away from the task fields. Grounded it from its computed bounding box, raised its contact plane, and rotated it toward the fields.
+- P1 — The cottage orientation did not present its entrance to the fields. Rotated the cottage and stall to face the working area.
+- P1 — The character used an unwanted shovel. Removed the shovel meshes from the browser scene and retained the rig-driven `Dig`/`Sit` actions.
+- P1 — The idle character floated above the chair. Lowered the character root to the chair seat; the final capture shows the character seated rather than standing on the furniture.
+
+## Runtime verification
+
+- Confirmed the farm, clean cottage, chair, and stall GLBs load without console errors.
+- Confirmed live task counts, empty soil cells, camera reset, orbit/zoom controls, lazy loading, and five-second dashboard state updates remain intact.
+- The supplied character GLB contains an armature but no exported animation clips; the browser farm therefore keeps its rig-based custom crouching/digging and sitting clips.
