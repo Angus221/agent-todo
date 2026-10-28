@@ -148,7 +148,6 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   const previewButton = document.createElement('button');
   previewButton.className = 'farm-preview-control';
   previewButton.textContent = '演示角色动作';
-  labels.appendChild(previewButton);
   previewButton.addEventListener('click', () => {
     previewTime = previewTime < 0 ? 0 : -1;
     previewButton.textContent = previewTime < 0 ? '演示角色动作' : '结束演示';

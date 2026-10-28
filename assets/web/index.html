@@ -538,6 +538,15 @@
       height: 100%;
       outline: none;
     }
+
+    .farm-game-header{position:absolute;left:20px;right:20px;top:18px;z-index:10;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;pointer-events:none}
+    .farm-wood-board{width:320px;max-width:calc(100% - 160px);padding:9px 11px 10px;pointer-events:auto;border:4px solid #95602e;border-radius:5px;background:repeating-linear-gradient(2deg,transparent 0 22px,#a96c3326 23px 24px),linear-gradient(#f1d099,#c68c49);box-shadow:inset 0 0 0 2px #f9e0ac,inset 0 -5px #9a602d55,0 4px 0 #69431f,0 7px 12px #35220f40;color:#4d3019;font:12px system-ui}
+    .farm-board-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}.farm-board-top img{width:44px;height:44px;object-fit:cover;border:3px solid #fff1c7;outline:2px solid #9b6b36;border-radius:3px}.farm-board-top h1{font-size:16px;font-weight:900;line-height:1.4;text-shadow:0 1px #fff0c4}.farm-board-top p{font-size:10px;max-width:210px;color:#694727}.farm-board-top button{margin-left:auto;min-width:30px;min-height:36px;font-size:22px;color:#69431f}
+    .farm-quota-row{display:flex;align-items:center;gap:7px;margin:5px 0;font-weight:800}.farm-quota-row>span{width:42px;font-size:11px}.farm-wood-meter{position:relative;flex:1;height:18px;border:2px solid #845021;background:#6d4b2c;border-radius:3px;overflow:hidden;box-shadow:0 1px #ffe7b1}.farm-wood-meter i{display:block;height:100%;background:linear-gradient(#d2ee77,#83b336 50%,#699528 51%,#9bc443);border-right:1px solid #e0f598}.farm-wood-meter i.is-low{background:linear-gradient(#ffd76d,#df8b35)}.farm-wood-meter b{position:absolute;inset:0;text-align:center;color:#fff8df;font-size:11px;line-height:14px;text-shadow:0 1px 2px #36250a,1px 0 #36250a}
+    .farm-board-counts{display:flex;justify-content:space-between;gap:5px;border-top:1px solid #9d6a36;margin-top:8px;padding-top:7px;font-size:10px}.farm-board-counts b{color:#fff8dc;text-shadow:0 1px #69431f;font-size:12px}
+    .farm-game-actions{display:flex;gap:12px;pointer-events:auto}.farm-game-actions button{width:68px;min-height:76px;position:relative;transition:transform .15s;filter:drop-shadow(0 3px 1px #63442366)}.farm-game-actions svg{width:64px;height:58px;margin:auto}.farm-game-actions span{display:block;margin-top:-6px;color:#fff1aa;font-size:14px;font-weight:900;text-shadow:-1px -1px #623c1b,1px -1px #623c1b,-1px 1px #623c1b,1px 2px #623c1b}.farm-game-actions button:hover{transform:translateY(-3px)}.farm-game-actions button:active{transform:translateY(1px)}.farm-game-header button:focus-visible{outline:3px solid #fff6bc;outline-offset:3px;border-radius:5px}
+    @media(max-width:600px){.farm-game-header{left:8px;right:8px;top:10px;gap:8px}.farm-wood-board{max-width:calc(100% - 66px);width:290px}.farm-game-actions{flex-direction:column;gap:4px}.farm-game-actions button{width:58px;min-height:62px}.farm-game-actions svg{width:52px;height:48px}.farm-board-top p{max-width:155px}.farm-board-counts{flex-wrap:wrap}}
+    @media(prefers-reduced-motion:reduce){.farm-game-actions button{transition:none}}
     .farm-hud-panel {
       background: rgba(255, 255, 255, 0.84);
       border: 1px solid rgba(255, 255, 255, 0.76);
@@ -1671,39 +1680,22 @@
     <div v-else-if="activePrimaryModule === 'farm'" class="farm-stage flex-1 h-full overflow-hidden relative select-none">
       <div ref="farmCanvasHost" class="absolute inset-0" aria-live="polite"></div>
 
-      <header class="absolute left-6 right-6 top-5 z-10 flex items-start justify-between gap-4 pointer-events-none">
-        <div class="farm-hud-panel rounded-2xl px-4 py-3 pointer-events-auto">
-          <div class="flex items-center gap-2.5">
-            <span class="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl ring-1 ring-lime-200">
-              <img src="/models/farm-preview.png" alt="" class="h-full w-full object-cover" />
-            </span>
-            <div>
-              <h1 class="text-sm font-black tracking-tight text-slate-900">Agent 任务农场</h1>
-              <p class="mt-0.5 text-[10px] text-slate-500">拖动旋转 · 滚轮缩放 · 点击作物打开待办</p>
-            </div>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] font-semibold text-slate-600">
-            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-slate-400"></i>货架 {{ farmSummary.inbox }}</span>
-            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-lime-500"></i>已排期 {{ farmSummary.scheduled }}</span>
-            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-blue-500"></i>进行中 {{ farmSummary.active }}</span>
-            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-amber-500"></i>待验收 {{ farmSummary.review }}</span>
-            <span class="flex items-center gap-1.5"><i class="h-2 w-2 rounded-full bg-emerald-500"></i>已完成 {{ farmSummary.done }}</span>
-          </div>
-        </div>
-
-        <div class="farm-hud-panel rounded-xl p-1.5 pointer-events-auto">
-          <button type="button" @click="openFarmConfig" class="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-white focus-visible:ring-2 focus-visible:ring-lime-500">环境配置</button>
-          <button
-            type="button"
-            @click="resetFarmCamera"
-            class="rounded-lg px-3 py-2 text-[11px] font-bold text-slate-700 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500"
-            title="恢复默认视角">
-            恢复视角
+      <header class="farm-game-header">
+        <section class="farm-wood-board" aria-label="农场状态与额度">
+          <div class="farm-board-top"><img src="/models/farm-preview.png" alt=""/><div><h1>Agent 任务农场</h1><p>{{ farmWeatherText }}</p></div><button type="button" @click="openFarmConfig" aria-label="配置农场" title="配置农场">⚙</button></div>
+          <div v-for="bar in farmQuotaBars" :key="bar.name" class="farm-quota-row"><span>{{bar.name}}</span><div class="farm-wood-meter" role="progressbar" :aria-label="bar.name+'剩余额度'" :aria-valuenow="bar.remaining" aria-valuemin="0" aria-valuemax="100" :aria-valuetext="bar.text"><i :style="{width:(bar.remaining||0)+'%'}" :class="{'is-low':bar.remaining!==null&&bar.remaining<30}"></i><b>{{bar.text}}</b></div></div>
+          <div class="farm-board-counts"><span>货架 <b>{{farmSummary.inbox}}</b></span><span>排期 <b>{{farmSummary.scheduled}}</b></span><span>进行 <b>{{farmSummary.active}}</b></span><span>验收 <b>{{farmSummary.review}}</b></span><span>完成 <b>{{farmSummary.done}}</b></span></div>
+        </section>
+        <nav class="farm-game-actions" aria-label="农场操作">
+          <button type="button" @click="openFarmConfig" aria-label="设置" title="设置">
+            <svg viewBox="0 0 72 64" aria-hidden="true"><path d="M15 10L57 7 61 53 11 55Z" fill="#fff0c0" stroke="#70451d" stroke-width="3"/><path d="M18 9V3M29 8V2M41 8V2M52 7V2" stroke="#a96f32" stroke-width="5" stroke-linecap="round"/><path d="M21 23H49M21 32H48M21 41H47" stroke="#b69056" stroke-width="4"/><g transform="translate(48 41)"><path d="M-6-14H6L8-9 14-6V6L9 8 6 14H-6L-8 9-14 6V-6L-9-8Z" fill="#f7c45a" stroke="#70451d" stroke-width="2.5"/><circle r="5" fill="#fff6da" stroke="#70451d" stroke-width="2"/></g></svg><span>设置</span>
           </button>
-        </div>
+          <button type="button" @click="resetFarmCamera" aria-label="恢复视角" title="恢复视角">
+            <svg viewBox="0 0 72 64" aria-hidden="true"><rect x="9" y="8" width="54" height="44" rx="9" fill="#86d3e8" stroke="#70451d" stroke-width="3"/><path d="M11 41L26 25 39 39 49 29 61 42V49H11Z" fill="#75af39"/><path d="M32 23L44 31 39 48 23 48 28 35 20 29Z" fill="#f1d693"/><path d="M15 19C24 2 51 2 60 21M60 10V23H47" fill="none" stroke="#fff9d1" stroke-width="6" stroke-linejoin="round"/><path d="M15 19C24 2 51 2 60 21M60 10V23H47" fill="none" stroke="#5c8128" stroke-width="3" stroke-linejoin="round"/></svg><span>恢复视角</span>
+          </button>
+        </nav>
       </header>
 
-      <div class="absolute top-32 left-6 z-10 rounded-full bg-white/80 px-3 py-1.5 text-[11px] text-slate-600 backdrop-blur" :title="farmWeather?.fetchedAt ? '天气更新：' + new Date(farmWeather.fetchedAt).toLocaleString('zh-CN') : '正在获取实时天气'">{{ farmWeatherText }}</div>
       <div v-if="showFarmConfig" class="absolute inset-0 z-40 grid place-items-center bg-slate-900/30 p-5 backdrop-blur-sm" @click.self="showFarmConfig=false" @keydown.esc="showFarmConfig=false">
         <form @submit.prevent="saveFarmConfig" @keydown.tab="trapFarmConfigFocus" role="dialog" aria-modal="true" aria-labelledby="farm-config-title" class="w-full max-w-sm rounded-2xl border border-white bg-[#fffdf4] p-6 shadow-2xl space-y-5">
           <div class="flex justify-between items-center"><h2 id="farm-config-title" class="font-bold text-slate-800">农场环境</h2><button type="button" @click="showFarmConfig=false" aria-label="关闭环境配置" class="px-2 py-1">×</button></div>
@@ -1716,11 +1708,7 @@
         </form>
       </div>
 
-      <div class="absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-white/70 bg-white/90 px-4 py-2 text-[10px] font-medium text-slate-700 shadow-lg backdrop-blur-md pointer-events-none">
-        货架＝未排期 · 左田＝已排期 · 中田＝进行中/待验收 · 右田＝已完成
-      </div>
-
-      <div v-if="farmLoading" class="absolute inset-0 z-20 grid place-items-center bg-[#d8eef5]/90 backdrop-blur-sm">
+<div v-if="farmLoading" class="absolute inset-0 z-20 grid place-items-center bg-[#d8eef5]/90 backdrop-blur-sm">
         <div class="text-center">
           <div class="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-white/70 border-t-lime-600"></div>
           <p class="mt-3 text-xs font-bold text-slate-700">正在载入 3D 任务农场…</p>
@@ -2895,6 +2883,7 @@
       });
       let farmController = null;
       let farmQuota = {};
+      const farmQuotaBars=ref([]);
       let farmModulePromise = null;
       const currentViewMode = ref('kanban'); // kanban / list / calendar
       const clockNow = ref(new Date());
@@ -4011,6 +4000,11 @@ Please navigate to the Project Path specified above, analyze the current workspa
 
       function applyCodexSnapshot(snapshot) {
         farmQuota = snapshot.quota || {};
+        farmQuotaBars.value=[300,10080].map(minutes=>{
+          const window=[farmQuota.primary,farmQuota.secondary].find(item=>Number(item?.windowDurationMins)===minutes);
+          const remaining=window?.usedPercent!=null?Math.max(0,Math.min(100,100-Number(window.usedPercent))):null;
+          return {name:minutes===300?'5 小时':'本周',remaining,text:remaining===null?'未提供':`${Math.round(remaining)}%`};
+        });
         const quota = snapshot.quota || {};
         const live = Array.isArray(snapshot.agents) ? snapshot.agents : [];
         const agent = live[0] || emptyCodexAgent(0, quota);
@@ -4059,7 +4053,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmLoading.value = true;
         farmError.value = '';
         try {
-          farmModulePromise ||= import('/farm3d.js?v=0.4.4');
+          farmModulePromise ||= import('/farm3d.js?v=0.4.5');
           const { createAgentFarm3D } = await farmModulePromise;
           if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
           farmController = createAgentFarm3D({
@@ -4383,7 +4377,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmTooltip,
         farmLoading,
         farmError,
-        showFarmConfig,farmConfig,farmConfigError,farmConfigSaving,farmWeather,farmWeatherText,openFarmConfig,saveFarmConfig,trapFarmConfigFocus,
+        farmQuotaBars,showFarmConfig,farmConfig,farmConfigError,farmConfigSaving,farmWeather,farmWeatherText,openFarmConfig,saveFarmConfig,trapFarmConfigFocus,
         farmSummary,
         resetFarmCamera,
         retryFarm3D,
