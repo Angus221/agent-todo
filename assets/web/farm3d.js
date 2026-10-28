@@ -29,7 +29,7 @@ function makeMarker(color) {
   return ring;
 }
 
-export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onError }) {
+export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpen, onReady, onError }) {
   if (!container) throw new Error('3D 农场容器不存在');
 
   const scene = new THREE.Scene();
@@ -83,7 +83,28 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
   let character = null;
   let mixer = null;
   let activeAction = null;
-  let currentAgentMode = '';
+  let previewTime = -1;
+  let phase = 'resting';
+  let phaseTime = 0;
+  let route = [];
+  let desiredWork = false;
+  let sessionTasks = [];
+  let workingSessionId = null;
+  const sessionPlants = new Map();
+  const seat = new THREE.Vector3(0.7, 0.16, -4.36);
+  const labels = document.createElement('div');
+  labels.className = 'farm-session-labels';
+  container.appendChild(labels);
+  const previewButton = document.createElement('button');
+  previewButton.className = 'farm-preview-control';
+  previewButton.textContent = '演示角色动作';
+  labels.appendChild(previewButton);
+  previewButton.addEventListener('click', () => {
+    previewTime = previewTime < 0 ? 0 : -1;
+    previewButton.textContent = previewTime < 0 ? '演示角色动作' : '结束演示';
+    if(previewTime===0 && character) { route=[]; character.position.copy(seat); character.rotation.y=0; enterPhase('resting'); labels.dataset.visited='resting'; }
+    update(state);
+  });
   const decorativeAssets = [];
   let disposed = false;
   let frameId = 0;
@@ -105,7 +126,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
   function findSlot(object) {
     let node = object;
     while (node && node !== farmRoot) {
-      if (SLOT_PREFIXES.some(prefix => node.name.startsWith(prefix))) return node;
+      if (node.userData.session || SLOT_PREFIXES.some(prefix => node.name.startsWith(prefix))) return node;
       node = node.parent;
     }
     return null;
@@ -134,7 +155,12 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     tooltip.hidden = false;
     tooltip.style.left = `${event.clientX + 16}px`;
     tooltip.style.top = `${event.clientY + 14}px`;
-    tooltip.innerHTML = `<strong>${task.title || '未命名待办'}</strong><span>${task.code || ''} · ${task.statusLabel || '待办'}</span>`;
+    tooltip.replaceChildren();
+    const title = document.createElement('strong');
+    title.textContent = task.title || '未命名待办';
+    const detail = document.createElement('span');
+    detail.textContent = `${task.code || ''} · ${task.statusLabel || '待办'}`;
+    tooltip.append(title, detail);
   }
 
   renderer.domElement.addEventListener('pointermove', event => {
@@ -146,14 +172,21 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     if (tooltip) tooltip.hidden = true;
   });
   renderer.domElement.addEventListener('click', event => {
-    const task = hoveredSlot(event)?.userData?.task;
-    if (task && onTaskOpen) onTaskOpen(task);
+    const slot = hoveredSlot(event);
+    if (slot?.userData.session) openSession(slot.userData.session);
+    else if (slot?.userData.task && onTaskOpen) onTaskOpen(slot.userData.task);
   });
+
+  function openSession(task) {
+    if(task.id === 'farm-preview') return;
+    if (onSessionOpen) onSessionOpen(task);
+    else window.location.href = `codex://threads/${encodeURIComponent(task.threadId || task.id)}`;
+  }
 
   function clearSlot(slot) {
     slot.userData.task = null;
     const marker = slot.getObjectByName('TaskStatusRing');
-    if (marker) slot.remove(marker);
+    if (marker) { slot.remove(marker); marker.geometry.dispose(); marker.material.dispose(); }
     slot.traverse(child => {
       if (/^Crop_/.test(child.name) || /^InboxPaper_/.test(child.name)) child.visible = false;
       if (child.isMesh && child.material?.emissive) child.material.emissiveIntensity = 0;
@@ -186,21 +219,122 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     });
   }
 
-  function setCharacterMode(mode) {
-    if (!character || mode === currentAgentMode) return;
-    currentAgentMode = mode;
-    const working = mode === 'working';
-    character.position.set(working ? 0 : 0.72, working ? 0.08 : 0.12, working ? 0.35 : -4.04);
-    character.rotation.y = working ? 0.2 : 0;
-    const clipName = working ? 'Dig' : 'Sit';
-    const clip = character.userData.clips?.find(item => item.name === clipName);
+  function playClip(clipName, { once = false, reverse = false, hold = false } = {}) {
+    const clip = character?.userData.clips?.find(item => item.name.toLowerCase() === clipName);
     if (clip && mixer) {
       const nextAction = mixer.clipAction(clip, character);
-      if (activeAction !== nextAction) {
-        activeAction?.fadeOut(0.25);
-        nextAction.reset().fadeIn(0.25).play();
-        activeAction = nextAction;
+      activeAction?.fadeOut(0.2);
+      nextAction.reset().setLoop(once || hold ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+      nextAction.clampWhenFinished = true;
+      nextAction.timeScale = reverse ? -1 : 1;
+      if (reverse || hold) nextAction.time = Math.max(0, clip.duration - 0.001);
+      nextAction.paused = hold;
+      nextAction.fadeIn(0.2).play();
+      activeAction = nextAction;
+      return clip.duration;
+    }
+    return 1;
+  }
+
+  let phaseDuration = 0;
+  function enterPhase(next) {
+    phase = next;
+    phaseTime = 0;
+    const actions = { rising: ['sit', {once:true, reverse:true}], walking: ['walk', {}], digging: ['dig', {}], roadside: ['walk', {}], dancing: ['dance_05', {once:true}], returning: ['walk', {}], sitting: ['sit', {once:true}], resting: ['sit', {hold:true}], waiting: ['dig', {hold:true}] };
+    phaseDuration = playClip(...actions[next]);
+    const phaseLabels = {rising:'起身',walking:'走向田地',digging:'耕作中',roadside:'走向路边',dancing:'庆祝完成',returning:'返回躺椅',sitting:'坐下',resting:'休息中',waiting:'等待确认'};
+    labels.dataset.phase=next;
+    labels.dataset.visited=`${labels.dataset.visited || ''} ${next}`.trim().slice(-300);
+    previewButton.title=`Codex · ${phaseLabels[next]}`;
+  }
+
+  function walkTo(points, nextPhase, walkingPhase = 'walking') {
+    route = points.map(point => point.clone());
+    route.nextPhase = nextPhase;
+    enterPhase(walkingPhase);
+  }
+
+  function workPosition() {
+    const task = sessionTasks.find(item => item.id === workingSessionId && item.status !== 'done') || sessionTasks.find(item => item.status !== 'done');
+    workingSessionId = task?.id || null;
+    const plant = sessionPlants.get(task?.id);
+    return plant ? plant.root.position.clone().add(new THREE.Vector3(0, 0, -0.65)) : new THREE.Vector3(0, 0.16, 0.35);
+  }
+
+  function syncSessions(agent) {
+    sessionTasks = previewTime >= 0 ? [{id:'farm-preview', title:'动作演示 · 走到田地种下一株植物', status:previewTime<28 ? 'in_progress':'done'}] : agent.agentTasks || [];
+    if (!sessionTasks.length && agent.threadId && desiredWork) sessionTasks = [{id:agent.threadId, threadId:agent.threadId, title:agent.task, status:'in_progress'}];
+    const keep = new Set(sessionTasks.map(task => task.id));
+    for (const [id, plant] of sessionPlants) if (!keep.has(id) && !(desiredWork === false && phase !== 'resting')) {
+      scene.remove(plant.root);
+      plant.button.remove();
+      plant.root.traverse(mesh => { if(mesh.isMesh) { mesh.geometry.dispose(); mesh.material.dispose(); const index=interactiveMeshes.indexOf(mesh); if(index>=0) interactiveMeshes.splice(index,1); } });
+      sessionPlants.delete(id);
+    }
+    sessionTasks.forEach((task, index) => {
+      let plant = sessionPlants.get(task.id);
+      if (!plant) {
+        const root = new THREE.Group();
+        const freeSlots = slotGroups.active.filter(slot => !slot.userData.task);
+        const candidates = freeSlots.length ? freeSlots : slotGroups.active;
+        const slot = candidates[index % candidates.length];
+        slot?.getWorldPosition(root.position);
+        root.position.y = 0.22;
+        root.userData.session = task;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.08,0.62,7), new THREE.MeshStandardMaterial({color:0x518735}));
+        stem.position.y = 0.32;
+        root.add(stem);
+        for(let leafIndex=0;leafIndex<5;leafIndex++) {
+          const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.22,10,6), new THREE.MeshStandardMaterial({color:leafIndex%2 ? 0x83bd40 : 0xb2d85e}));
+          const angle=leafIndex*Math.PI*2/5;
+          leaf.scale.set(1,0.48,1.6); leaf.position.set(Math.sin(angle)*0.15,0.5+leafIndex*0.055,Math.cos(angle)*0.15); leaf.rotation.z=Math.sin(angle)*0.6;
+          root.add(leaf);
+        }
+        root.traverse(mesh => {if(mesh.isMesh) interactiveMeshes.push(mesh);});
+        scene.add(root);
+        const button = document.createElement('button');
+        button.className='farm-session-bubble';
+        button.addEventListener('click',()=>openSession(root.userData.session));
+        labels.appendChild(button);
+        plant={root,button,age:0.12}; sessionPlants.set(task.id,plant);
       }
+      plant.root.userData.session=task;
+      plant.button.textContent=task.title || 'Codex 会话';
+      plant.button.title=`${task.title} · 点击打开 Codex 会话`;
+      plant.button.dataset.status=task.status;
+    });
+  }
+
+  function tickCharacter(delta) {
+    if(!character) return;
+    if(previewTime>=0) {
+      const previous=previewTime; previewTime+=delta;
+      if(previous<28 && previewTime>=28) update(state);
+      if(previewTime>=55) {previewTime=-1; previewButton.textContent='演示角色动作'; update(state);}
+    }
+    phaseTime+=delta;
+    if (route.length) {
+      const target=route[0]; const difference=target.clone().sub(character.position); difference.y=0;
+      const distance=difference.length();
+      if(distance<0.06) { route.shift(); if(!route.length) { if(route.nextPhase==='sitting') character.rotation.y=0; enterPhase(route.nextPhase); } }
+      else { character.rotation.y=Math.atan2(difference.x,difference.z); character.position.addScaledVector(difference.normalize(),Math.min(distance,delta*1.35)); }
+    } else if(phase==='rising' && phaseTime>=phaseDuration) {
+      walkTo([new THREE.Vector3(0.7,0.16,-3.1),workPosition()], 'digging');
+    } else if(phase==='dancing' && phaseTime>=phaseDuration) {
+      walkTo([new THREE.Vector3(seat.x,seat.y,-3.1),seat], 'sitting','returning');
+    } else if(phase==='sitting' && phaseTime>=phaseDuration) enterPhase('resting');
+    if(desiredWork && ['resting','sitting','returning','dancing','roadside'].includes(phase)) { route=[]; if(phase==='resting'||phase==='sitting') enterPhase('rising'); else walkTo([workPosition()],'digging'); }
+    if(!desiredWork && ['digging','waiting','walking','rising'].includes(phase)) {
+      walkTo([new THREE.Vector3(-4+Math.random()*8,0.16,-3.05)], 'dancing','roadside');
+    }
+    for(const plant of sessionPlants.values()) {
+      if(phase==='digging' && plant.root.userData.session.id===workingSessionId) plant.age=Math.min(1,plant.age+delta/3);
+      if(plant.root.userData.session.status==='done') plant.age=1;
+      plant.root.scale.setScalar(Math.max(0.05,plant.age));
+      const position=plant.root.position.clone().add(new THREE.Vector3(0,1.25,0)).project(camera);
+      plant.button.style.transform=`translate(-50%, -100%) translate(${(position.x*.5+.5)*container.clientWidth}px,${(-position.y*.5+.5)*container.clientHeight}px)`;
+      plant.button.hidden=position.z>1 || plant.age<0.1;
+      plant.button.dataset.phase=phase;
     }
   }
 
@@ -234,8 +368,9 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     });
 
     const agent = state.agents[0] || {};
-    const working = ['busy', 'working', 'waiting_approval', 'confirm'].includes(String(agent.status || '').toLowerCase());
-    setCharacterMode(working ? 'working' : 'resting');
+    desiredWork = previewTime >= 0 ? previewTime < 28 : ['busy', 'working', 'waiting_approval', 'confirm'].includes(String(agent.status || '').toLowerCase());
+    syncSessions(agent);
+    if(desiredWork && phase==='digging' && !sessionTasks.some(task=>task.id===workingSessionId && task.status!=='done')) walkTo([workPosition()],'digging');
   }
 
   function resetCamera() {
@@ -287,7 +422,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
       name: 'FarmHouse', scale: 5.1, x: 5.6, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
     });
     prepareDecorativeAsset(chairGltf.scene, {
-      name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: Math.PI, groundY: 0.16
+      name: 'RestChair', scale: 1.45, x: 0.7, z: -4.15, rotationY: -Math.PI / 2, groundY: 0.16
     });
     prepareDecorativeAsset(stallGltf.scene, {
       name: 'TodoInboxStall', scale: 3.5, x: -7.5, z: -4.8, rotationY: -Math.PI / 2, groundY: 0.02
@@ -311,13 +446,30 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
       else if (object.name.startsWith('InboxSlot_')) slotGroups.inbox.push(object);
     });
     Object.keys(slotGroups).forEach(key => { slotGroups[key] = naturalSort(slotGroups[key]); });
-    character = farmRoot.getObjectByName('AgentCharacter');
-    if (character) {
-      character.userData.clips = gltf.animations || [];
-      mixer = new THREE.AnimationMixer(character);
+    const oldCharacter = farmRoot.getObjectByName('AgentCharacter');
+    if(oldCharacter) {
+      oldCharacter.traverse(mesh=>{const index=interactiveMeshes.indexOf(mesh); if(index>=0) interactiveMeshes.splice(index,1);});
+      oldCharacter.removeFromParent();
     }
     try {
-      await loadDecorativeAssets();
+      const [, animated] = await Promise.all([loadDecorativeAssets(), loader.loadAsync('/models/character-animated.glb')]);
+      if(disposed) return;
+      character = new THREE.Group();
+      const model=animated.scene;
+      model.scale.setScalar(1.8);
+      character.add(model);
+      character.position.copy(seat);
+      scene.add(character);
+      character.userData.clips=animated.animations;
+      // Locomotion belongs to the route controller; retain the rig's vertical motion.
+      for(const clip of animated.animations) for(const track of clip.tracks) {
+        if(track.name === 'BoneRoot.position') {
+          for(let index=0;index<track.values.length;index+=3) { track.values[index]=track.values[0]; track.values[index+2]=track.values[2]; }
+        }
+      }
+      mixer=new THREE.AnimationMixer(character);
+      model.traverse(mesh=>{if(mesh.isMesh) mesh.castShadow=true;});
+      enterPhase('resting');
       update(state);
       if (onReady) onReady();
     } catch (error) {
@@ -334,6 +486,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     frameId = requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.05);
     mixer?.update(delta);
+    tickCharacter(delta);
     controls.update();
     renderer.render(scene, camera);
   }
@@ -344,6 +497,17 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onReady, onE
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
     controls.dispose();
+    mixer?.stopAllAction();
+    labels.remove();
+    scene.traverse(object => {
+      if(!object.isMesh) return;
+      object.geometry?.dispose();
+      const materials=Array.isArray(object.material) ? object.material : [object.material];
+      for(const material of materials.filter(Boolean)) {
+        for(const value of Object.values(material)) if(value?.isTexture) value.dispose();
+        material.dispose();
+      }
+    });
     renderer.dispose();
     if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
   }

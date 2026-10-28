@@ -20,4 +20,7 @@ final result: passed
 
 - Confirmed the farm, clean cottage, chair, and stall GLBs load without console errors.
 - Confirmed live task counts, empty soil cells, camera reset, orbit/zoom controls, lazy loading, and five-second dashboard state updates remain intact.
-- The supplied character GLB contains an armature but no exported animation clips; the browser farm therefore keeps its rig-based custom crouching/digging and sitting clips.
+- The replacement character export contains five native Tripo clips: `dance_05`, `dig`, `shovel`, `sit`, and `walk`. Verified the browser uses these original clips instead of the former custom actions.
+- Verified the complete preview phase trace: `resting → rising → walking → digging → roadside → dancing → returning → sitting → resting`. A newly busy real session can interrupt the rest and start another cycle.
+- Verified the chair's local long axis and backrest geometry: its foot end is local +X, so a -90° Y rotation points it toward the fields (+Z). The final browser view shows the chair aligned front-to-back with the fields rather than parallel to the road.
+- Added keyboard-focusable game-style labels above growing session plants, plus a local action-preview control. Session titles use text content rather than interpolated HTML.
