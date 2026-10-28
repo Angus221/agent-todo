@@ -57,7 +57,7 @@ export function createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather}
   }
   const celestialTexture=glowTexture();
   const solar=new THREE.Sprite(new THREE.SpriteMaterial({map:celestialTexture,transparent:true,depthWrite:false,fog:false,toneMapped:false}));solar.scale.set(2.8,2.8,1);root.add(solar);
-  const sunAnchor=new THREE.Vector3(-5.3,8.7,-1.8);
+  const sunAnchor=new THREE.Vector3(-3.3,5.4,-2.6);
   const snowCover={value:0};
   function setHouse(house) {
     house.traverse(object=>{
