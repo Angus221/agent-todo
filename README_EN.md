@@ -160,3 +160,5 @@ The browser assets include builds of Vue 3, Marked, and Three.js under their ori
 
 [MIT](LICENSE)
 
+
+The farm water tower shows remaining Codex quota, with yellow/orange warnings below 30%/10%. It supports five-hour and weekly windows and hover reset countdowns. When only a weekly window is available, the tower explicitly displays weekly quota.

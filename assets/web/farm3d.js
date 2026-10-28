@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { createFarmEnvironment } from './farm-environment.js';
+import { createQuotaTower } from './farm-quota.js';
 
 const SLOT_PREFIXES = ['Cell_Scheduled_', 'Cell_Active_', 'Cell_Done_', 'InboxSlot_'];
 
@@ -127,6 +128,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   const groundMeshes = [];
   const environment=createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather});
   groundMeshes.push(...environment.groundSurfaces);
+  const quotaTower=createQuotaTower({scene,container,camera});
   let mixer = null;
   let activeAction = null;
   let previewTime = -1;
@@ -431,6 +433,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   }
 
   function update(nextState = {}) {
+    if(nextState.quota) quotaTower.update(nextState.quota);
     state = {
       tasks: Array.isArray(nextState.tasks) ? nextState.tasks : state.tasks,
       statuses: Array.isArray(nextState.statuses) ? nextState.statuses : state.statuses,
@@ -600,6 +603,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     controls.update();
     camera.updateMatrixWorld(true);
     environment.tick(delta);
+    quotaTower.tick(delta);
     tickCharacter(delta);
     // Tripo stores locomotion in Hip (in a rotated rig), not only BoneRoot.
     // Cancel world-horizontal hip motion after mixing, including crossfades,
@@ -627,6 +631,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     resizeObserver.disconnect();
     controls.dispose();
     environment.dispose();
+    quotaTower.dispose();
     mixer?.stopAllAction();
     labels.remove();
     scene.traverse(object => {

@@ -2894,6 +2894,7 @@
         return `${data.settings?.city || '济南'} · ${detail} · ${preview?'环境预览':data.stale?'上次天气':'实时天气'}`;
       });
       let farmController = null;
+      let farmQuota = {};
       let farmModulePromise = null;
       const currentViewMode = ref('kanban'); // kanban / list / calendar
       const clockNow = ref(new Date());
@@ -4009,6 +4010,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
       }
 
       function applyCodexSnapshot(snapshot) {
+        farmQuota = snapshot.quota || {};
         const quota = snapshot.quota || {};
         const live = Array.isArray(snapshot.agents) ? snapshot.agents : [];
         const agent = live[0] || emptyCodexAgent(0, quota);
@@ -4023,6 +4025,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
       function syncFarm3D() {
         farmController?.update({
           tasks: tasks.value,
+          quota: farmQuota,
           statuses: kanbanColumns.value,
           agents: agents.value
         });
@@ -4056,7 +4059,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmLoading.value = true;
         farmError.value = '';
         try {
-          farmModulePromise ||= import('/farm3d.js?v=0.4.1');
+          farmModulePromise ||= import('/farm3d.js?v=0.4.2');
           const { createAgentFarm3D } = await farmModulePromise;
           if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
           farmController = createAgentFarm3D({
