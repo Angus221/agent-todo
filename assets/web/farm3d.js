@@ -4,6 +4,14 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 
 const SLOT_PREFIXES = ['Cell_Scheduled_', 'Cell_Active_', 'Cell_Done_', 'InboxSlot_'];
 
+export function stabilizeCharacterMotion(character, motionAnchor, hipBone, scratch) {
+  motionAnchor.position.set(0,0,0);
+  character.updateMatrixWorld(true);
+  hipBone.getWorldPosition(scratch);
+  character.worldToLocal(scratch);
+  motionAnchor.position.set(-scratch.x,0,-scratch.z);
+}
+
 function naturalSort(items) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
@@ -81,6 +89,9 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   const slotGroups = { inbox: [], scheduled: [], active: [], done: [] };
   let farmRoot = null;
   let character = null;
+  let motionAnchor = null;
+  let hipBone = null;
+  const hipPosition = new THREE.Vector3();
   let mixer = null;
   let activeAction = null;
   let previewTime = -1;
@@ -242,6 +253,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   function enterPhase(next) {
     phase = next;
     phaseTime = 0;
+    if(character && ['resting','rising','sitting','digging','dancing'].includes(next)) character.rotation.y=0;
     if(next==='digging') switchAfter=10+Math.random()*8;
     const actions = { rising: ['sit', {once:true, reverse:true}], walking: ['walk', {}], digging: ['dig', {}], roadside: ['walk', {}], dancing: ['dance_05', {once:true}], returning: ['walk', {}], sitting: ['sit', {once:true}], resting: ['sit', {hold:true}], waiting: ['dig', {hold:true}] };
     phaseDuration = playClip(...actions[next]);
@@ -323,8 +335,9 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       }
       plant.root.userData.session=task;
       plant.root.visible=true;
-      plant.button.textContent=task.title || 'Codex 会话';
-      plant.button.title=`${task.title} · 点击打开 Codex 会话`;
+      const fullTitle=task.title || 'Codex 会话';
+      plant.button.textContent=Array.from(fullTitle).slice(0,10).join('');
+      plant.button.title=fullTitle;
       plant.button.dataset.status=task.status;
       plant.button.dataset.slot=plant.root.userData.slot;
       plant.button.setAttribute('aria-label',`${task.title}，${task.status==='done' ? '已完成' : isProblem(task) ? '待确认或异常' : '进行中'}，点击打开会话`);
@@ -341,19 +354,13 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     }
     phaseTime+=delta;
     if (route.length) {
-      const target=route[0]; const difference=target.clone().sub(character.position); difference.y=0;
+      const target=route[0]; const difference=target.clone().sub(character.position);
       const distance=difference.length();
-      if(distance<0.06) { character.position.copy(target); route.shift(); if(!route.length) { if(['sitting','digging'].includes(route.nextPhase)) character.rotation.y=0; enterPhase(route.nextPhase); } }
+      const step=delta*1.35;
+      if(distance<=step) { character.position.copy(target); route.shift(); if(!route.length) enterPhase(route.nextPhase); }
       else {
         character.rotation.y=Math.atan2(difference.x,difference.z);
-        character.position.addScaledVector(difference.normalize(),Math.min(distance,delta*1.35));
-        // Match the surface under the feet while following the direct shortest route.
-        const inField = slotGroups.active.concat(slotGroups.scheduled,slotGroups.done).some(slot=>{
-          const point=slot.getWorldPosition(new THREE.Vector3());
-          return Math.abs(point.x-character.position.x)<0.65 && Math.abs(point.z-character.position.z)<0.65;
-        });
-        const ground=inField ? 0.66 : 0.3;
-        character.position.y=THREE.MathUtils.damp(character.position.y,ground,12,delta);
+        character.position.addScaledVector(difference.normalize(),step);
       }
     } else if(phase==='rising' && phaseTime>=phaseDuration) {
       walkTo([workPosition()], 'digging');
@@ -378,7 +385,8 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       const growth=Math.max(0.1,plant.age);
       plant.root.scale.set(growth*0.4, growth*(completed ? 1.35 : 0.42), growth*0.4);
       plant.root.rotation.z=isProblem(task) ? Math.sin(elapsed*5)*0.14 : 0;
-      const position=plant.root.position.clone().add(new THREE.Vector3(0,completed ? 1.25 : 0.64,0)).project(camera);
+      // Ground label sits in front of the plant (+Z), away from the farmer's head.
+      const position=plant.root.position.clone().add(new THREE.Vector3(0,0.04,0.55)).project(camera);
       plant.button.style.transform=`translate(-50%, -100%) translate(${(position.x*.5+.5)*container.clientWidth}px,${(-position.y*.5+.5)*container.clientHeight}px)`;
       plant.button.hidden=position.z>1 || plant.age<0.1;
       plant.button.dataset.phase=phase;
@@ -508,18 +516,15 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
       model.scale.setScalar(1.8);
       // Tripo's face and forward leg direction are +X; routes use world +Z.
       model.rotation.y=-Math.PI/2;
-      character.add(model);
+      motionAnchor=new THREE.Group();
+      motionAnchor.add(model);
+      character.add(motionAnchor);
+      hipBone=model.getObjectByName('Hip');
       character.position.copy(seat);
       scene.add(character);
       character.userData.clips=animated.animations;
-      // Locomotion belongs to the route controller; retain the rig's vertical motion.
-      for(const clip of animated.animations) for(const track of clip.tracks) {
-        if(track.name === 'BoneRoot.position') {
-          for(let index=0;index<track.values.length;index+=3) { track.values[index]=track.values[0]; track.values[index+2]=track.values[2]; }
-        }
-      }
       mixer=new THREE.AnimationMixer(character);
-      model.traverse(mesh=>{if(mesh.isMesh) mesh.castShadow=true;});
+      model.traverse(mesh=>{if(mesh.isMesh) {mesh.castShadow=true; if(mesh.isSkinnedMesh) mesh.frustumCulled=false;}});
       enterPhase('resting');
       update(state);
       if (onReady) onReady();
@@ -538,6 +543,12 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     const delta = Math.min(clock.getDelta(), 0.05);
     mixer?.update(delta);
     tickCharacter(delta);
+    // Tripo stores locomotion in Hip (in a rotated rig), not only BoneRoot.
+    // Cancel world-horizontal hip motion after mixing, including crossfades,
+    // so looping clips cannot move the visible actor away from the route.
+    if(motionAnchor && hipBone) {
+      stabilizeCharacterMotion(character,motionAnchor,hipBone,hipPosition);
+    }
     controls.update();
     renderer.render(scene, camera);
   }

@@ -36,7 +36,7 @@ A local-first todo skill for Codex. It stores personal or workspace tasks in SQL
 
 The character uses native Tripo walk, sit, dig, and dance animations. When Codex starts working, it rises from the chair, walks into a field cell, and digs up a plant labeled with the session title. After work finishes, it walks to a random roadside spot, dances, and returns to sit. Click a plant or its floating title to open the Codex thread. Use the bottom-right action preview to try the full sequence without changing any tasks.
 
-Each session owns a distinct stable cell. The farmer randomly visits concurrent unfinished sessions: short plants indicate active work, tall plants indicate completion, and swaying plants indicate approval requests or problems. Walking follows a direct route; sitting and digging face the same direction as the house entrance. Compact bubbles display session titles.
+Each session owns a distinct stable cell. The farmer randomly visits concurrent unfinished sessions: short plants indicate active work, tall plants indicate completion, and swaying plants indicate approval requests or problems. Walking follows a direct route; sitting, digging, and dancing face the same direction as the house entrance. Ground labels in front of plants show the first ten characters of session titles; hover for the full title and click to open the thread.
 
 ![Agent Todo 3D task farm](assets/web/models/farm-browser.png)
 

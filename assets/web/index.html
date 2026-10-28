@@ -544,7 +544,7 @@
       backdrop-filter: blur(16px);
     }
     .farm-session-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-    .farm-session-bubble { position: absolute; left: 0; top: 0; pointer-events: auto; max-width: 138px; min-height: 22px; padding: 3px 7px; border: 1px solid #c7dba8; border-radius: 8px 8px 8px 2px; background: #fffceee8; color: #304426; box-shadow: 0 2px 5px #26492320; font-size: 10px; line-height: 15px; font-weight: 500; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .farm-session-bubble { position: absolute; left: 0; top: 0; pointer-events: auto; max-width: 138px; min-height: 20px; padding: 2px 6px; border: 1px solid #c6b58a; border-radius: 5px; background: #fff6dfed; color: #493b24; box-shadow: 0 1px 3px #49351d25; font-size: 10px; line-height: 15px; font-weight: 500; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .farm-session-bubble::before { content: ''; display: inline-block; width: 4px; height: 4px; margin: 0 4px 1px 0; border-radius: 50%; background: #4c91db; }
     .farm-session-bubble[data-status='done']::before { background: #63a83f; }
     .farm-session-bubble[data-status='waiting_approval']::before { background: #db9a26; }
@@ -4005,7 +4005,7 @@ Please navigate to the Project Path specified above, analyze the current workspa
         farmLoading.value = true;
         farmError.value = '';
         try {
-          farmModulePromise ||= import('/farm3d.js?v=0.3.1');
+          farmModulePromise ||= import('/farm3d.js?v=0.3.2');
           const { createAgentFarm3D } = await farmModulePromise;
           if (!farmCanvasHost.value || activePrimaryModule.value !== 'farm') return;
           farmController = createAgentFarm3D({
