@@ -3,6 +3,7 @@ import { GLTFLoader } from './vendor/GLTFLoader.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { createFarmEnvironment } from './farm-environment.js';
 import { createQuotaTower } from './farm-quota.js';
+import { createFarmCat } from './farm-cat.js';
 
 const SLOT_PREFIXES = ['Cell_Scheduled_', 'Cell_Active_', 'Cell_Done_', 'InboxSlot_'];
 
@@ -126,6 +127,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
   const groundOrigin = new THREE.Vector3();
   const down = new THREE.Vector3(0,-1,0);
   const groundMeshes = [];
+  const farmCat = createFarmCat(scene, groundMeshes);
   const environment=createFarmEnvironment({scene,camera,sun,hemi,renderer,onWeather});
   groundMeshes.push(...environment.groundSurfaces);
   const quotaTower=createQuotaTower({scene,container,camera});
@@ -214,14 +216,20 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
 
   renderer.domElement.addEventListener('pointermove', event => {
     const slot = hoveredSlot(event);
-    renderer.domElement.style.cursor = slot?.userData?.task ? 'pointer' : 'grab';
+    renderer.domElement.style.cursor = farmCat.hitTest(raycaster)||slot?.userData?.task ? 'pointer' : 'grab';
     showTooltip(event, slot);
   });
   renderer.domElement.addEventListener('pointerleave', () => {
     if (tooltip) tooltip.hidden = true;
   });
+  let pointerStart=null;
+  renderer.domElement.addEventListener('pointerdown',event=>{pointerStart={x:event.clientX,y:event.clientY};});
   renderer.domElement.addEventListener('click', event => {
+    if(pointerStart&&Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>5)return;
     const slot = hoveredSlot(event);
+    const catHit=farmCat.hitTest(raycaster);
+    const otherHit=catHit?raycaster.intersectObjects(interactiveMeshes,false)[0]:null;
+    if(catHit&&(!otherHit||catHit.distance<otherHit.distance)){farmCat.interact(camera);return;}
     if (slot?.userData.session) openSession(slot.userData.session);
     else if (slot?.userData.task && onTaskOpen) onTaskOpen(slot.userData.task);
   });
@@ -602,6 +610,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     environment.tick(delta);
     quotaTower.tick(delta);
     tickCharacter(delta);
+    farmCat.tick(delta, phase, character, camera);
     // Tripo stores locomotion in Hip (in a rotated rig), not only BoneRoot.
     // Cancel world-horizontal hip motion after mixing, including crossfades,
     // so looping clips cannot move the visible actor away from the route.
@@ -629,6 +638,7 @@ export function createAgentFarm3D({ container, tooltip, onTaskOpen, onSessionOpe
     controls.dispose();
     environment.dispose();
     quotaTower.dispose();
+    farmCat.dispose();
     mixer?.stopAllAction();
     labels.remove();
     scene.traverse(object => {

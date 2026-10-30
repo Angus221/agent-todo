@@ -1,5 +1,7 @@
 # Agent Todo
 
+The 3D farm includes a Siamese cat with eleven skeletal animations. It eats at `:00` and `:30`, wanders and rests afterward, and performs a random idle action every five minutes. When the farmer celebrates completed work, the cat runs over, watches with a wagging tail, then follows back to sleep beside the chair. This simulation runs while the farm is open; missed meal slots are coalesced into one meal. While resting, the cat tucks its paws under its body and occasionally moves its head. Click to make it look toward the camera and show “喵”; click again within eight seconds to make it run away. The farm uses an optimized model with approximately 49,000 triangles; the supplied original remains unchanged.
+
 English · [简体中文](README.md)
 
 A local-first todo skill for Codex. It stores personal or workspace tasks in SQLite and provides a web dashboard for todos, Codex quota, and current activity.
